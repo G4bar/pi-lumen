@@ -1,0 +1,55 @@
+/**
+ * Optional `❯` prompt glyph on the first editor line.
+ * Approach (unboxed variant) adapted from heyhuynhgiabuu/pi-pretty v0.10.0 (src/prompt-editor.ts), MIT.
+ * Skipped when another extension already owns the editor slot or pi no longer exposes the border hooks.
+ */
+import { CustomEditor, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+const SLOT = 2; // glyph + one space
+
+export function canUsePromptEditor(ctx: ExtensionContext): boolean {
+	// SAFETY: only reads two method slots by name to feature-detect protected hooks; nothing is called or written.
+	const proto = CustomEditor.prototype as unknown as Record<string, unknown>;
+	const hooks = typeof proto.renderTopBorder === "function" && typeof proto.renderBottomBorder === "function";
+	return hooks && ctx.ui.getEditorComponent() === undefined;
+}
+
+export function installPromptEditor(ctx: ExtensionContext, paint: () => (s: string) => string): () => void {
+	class PromptEditor extends CustomEditor {
+		private userPadding = 0;
+		private scrolled = false;
+
+		constructor(...args: ConstructorParameters<typeof CustomEditor>) {
+			super(...args);
+			this.userPadding = super.getPaddingX();
+			super.setPaddingX(this.userPadding + SLOT);
+		}
+
+		override getPaddingX(): number {
+			return this.userPadding;
+		}
+
+		override setPaddingX(padding: number): void {
+			this.userPadding = Math.max(0, padding);
+			super.setPaddingX(this.userPadding + SLOT);
+		}
+
+		protected override renderTopBorder(width: number, hiddenLineCount: number): string {
+			this.scrolled = hiddenLineCount > 0;
+			return super.renderTopBorder(width, hiddenLineCount);
+		}
+
+		override render(width: number): string[] {
+			const lines = super.render(width);
+			const first = lines[1];
+			const pad = this.userPadding + SLOT;
+			if (!this.scrolled && first && first.startsWith(" ".repeat(pad))) {
+				const start = this.userPadding;
+				lines[1] = `${first.slice(0, start)}${paint()("❯")} ${first.slice(pad)}`;
+			}
+			return lines;
+		}
+	}
+	ctx.ui.setEditorComponent((tui, theme, kb) => new PromptEditor(tui, theme, kb));
+	return () => ctx.ui.setEditorComponent(undefined);
+}

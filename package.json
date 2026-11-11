@@ -1,0 +1,31 @@
+{
+  "name": "pi-lumen",
+  "version": "0.1.0",
+  "description": "Minimal pi extension: powerline-style status line, Claude Code thinking colors, compact tools and transcript timestamps.",
+  "keywords": ["pi-package", "pi", "pi-extension", "statusline", "powerline"],
+  "license": "MIT",
+  "type": "module",
+  "files": ["src", "README.md", "LICENSE", "NOTICE.md"],
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "1.5.1",
+    "@earendil-works/pi-coding-agent": "1.5.1",
+    "@earendil-works/pi-tui": "1.5.1",
+    "@types/node": "^24.0.0",
+    "typebox": "*",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
