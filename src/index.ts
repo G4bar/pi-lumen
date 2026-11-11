@@ -48,7 +48,12 @@ export default function lumen(pi: ExtensionAPI): void {
 		const ev = e.assistantMessageEvent;
 		switch (ev.type) {
 			case "thinking_start":
+				s.tps.begin();
 				s.thinkingStart();
+				break;
+			case "text_start":
+			case "toolcall_start":
+				s.tps.begin();
 				break;
 			case "thinking_delta":
 				s.thinkingStart();

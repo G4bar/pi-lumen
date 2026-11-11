@@ -79,6 +79,60 @@ describe("TpsTracker", () => {
 		t = 100;
 		expect(tps.end(5)).toBeUndefined();
 	});
+	it("starts the clock at the *_start event, not at the first delta", () => {
+		let t = 0;
+		const tps = new TpsTracker(() => t);
+		tps.begin();
+		t = 1000;
+		tps.delta("x".repeat(40));
+		t = 2000;
+		expect(tps.end(100)).toBeCloseTo(50); // 100 tok / 2s
+	});
+	it("live value follows a sliding window, not the whole-message average", () => {
+		let t = 0;
+		const tps = new TpsTracker(() => t, 2000);
+		tps.begin();
+		for (let i = 0; i < 10; i++) { // fast phase: 400 chars/s = 100 tok/s
+			t += 1000;
+			tps.delta("x".repeat(400));
+		}
+		expect(tps.current()).toBeCloseTo(100, 0); // 2s window = 200 tok / 2s
+		for (let i = 0; i < 4; i++) { // slow phase: 40 chars/s = 10 tok/s
+			t += 1000;
+			tps.delta("x".repeat(40));
+		}
+		expect(tps.current()).toBeCloseTo(10, 0);
+	});
+	it("decays to 0 while the stream stalls", () => {
+		let t = 0;
+		const tps = new TpsTracker(() => t, 2000);
+		tps.delta("x".repeat(400));
+		t = 1000;
+		tps.delta("x".repeat(400));
+		t = 10_000;
+		expect(tps.current()).toBe(0);
+	});
+	it("a burst flushed after a stall does not read as a spike", () => {
+		let t = 0;
+		const tps = new TpsTracker(() => t, 2000);
+		tps.delta("x".repeat(80)); // 20 tok at t=0
+		t = 5000;
+		tps.delta("x".repeat(2000)); // 500 tok flushed at t=5000
+		expect(tps.current()).toBeCloseTo(100, 0); // span extended back to t=0: 500 tok / 5s, not 250
+		t = 5600;
+		expect(tps.current()).toBeCloseTo(500 / 5.6, 0); // ~89, not 250
+	});
+	it("calibrates chars/token from the exact usage of finished messages", () => {
+		let t = 0;
+		const tps = new TpsTracker(() => t, 2000);
+		tps.delta("x".repeat(300));
+		t = 1000;
+		tps.end(100); // 3 chars/token
+		t = 5000;
+		tps.delta("x".repeat(300));
+		t = 6000;
+		expect(tps.current()).toBeCloseTo(100); // 300 chars / 3 per token over 1s
+	});
 });
 
 describe("ThinkingTimer", () => {

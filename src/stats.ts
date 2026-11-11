@@ -104,47 +104,104 @@ export function cacheView(s: LedgerStats): CacheView {
 	return percent === undefined ? { kind: "none" } : { kind: "rate", percent };
 }
 
+/** Width of the live sliding window, in ms. */
+export const TPS_WINDOW_MS = 2000;
+/** Below this span the live rate is too noisy to show. */
+const TPS_MIN_SPAN_MS = 500;
+/** Finished messages shorter than this are ignored (usually a single flush). */
+const TPS_MIN_FINAL_MS = 250;
+const DEFAULT_CHARS_PER_TOKEN = 4;
+
 /**
- * Output tokens per second, from first content to message end.
- * While streaming the count is estimated as chars/4; `end()` replaces it with the exact figure.
+ * Output tokens per second.
+ *
+ * - Clock starts at the first content event (`*_start` or delta), never at the request, so the
+ *   time-to-first-token is excluded.
+ * - Live value: sliding window over the last {@link TPS_WINDOW_MS} (clipped to the stream start), so it
+ *   follows the current speed and decays during stalls instead of averaging the whole message.
+ *   Tokens are estimated from chars using a chars/token ratio calibrated on the exact usage of the
+ *   previous messages (4 until the first one finishes).
+ * - Final value: provider-reported `usage.output` over first content → message end.
+ *
+ * Inspired by gsanhueza/pi-token-speed (sliding window, TTFT excluded, reconcile with usage at end).
  */
 export class TpsTracker {
 	private startedAt: number | undefined;
 	private chars = 0;
+	private events: { t: number; chars: number }[] = [];
+	/** Timestamp of the latest event that fell out of the window (the one before a possible burst). */
+	private prunedT: number | undefined;
+	private charsPerToken = DEFAULT_CHARS_PER_TOKEN;
 	private last: number | undefined;
 
-	constructor(private readonly now: () => number = Date.now) {}
+	constructor(
+		private readonly now: () => number = Date.now,
+		private readonly windowMs: number = TPS_WINDOW_MS,
+	) {}
 
 	reset(): void {
 		this.startedAt = undefined;
 		this.chars = 0;
+		this.events = [];
+		this.prunedT = undefined;
+	}
+
+	/** Mark the first content event (text/thinking/tool call start). Idempotent. */
+	begin(): void {
+		this.startedAt ??= this.now();
 	}
 
 	/** Feed a streamed delta (text, thinking or tool call arguments). */
 	delta(text: string): void {
-		if (this.startedAt === undefined) this.startedAt = this.now();
+		const t = this.now();
+		this.startedAt ??= t;
+		if (text.length === 0) return;
 		this.chars += text.length;
+		this.events.push({ t, chars: text.length });
+		const cutoff = t - this.windowMs;
+		let drop = 0;
+		let lastDropped: number | undefined;
+		for (const e of this.events) {
+			if (e.t >= cutoff) break;
+			lastDropped = e.t;
+			drop++;
+		}
+		if (drop > 0) {
+			this.prunedT = lastDropped;
+			this.events.splice(0, drop);
+		}
 	}
 
 	/** Finish a message with the exact output token count. Returns tok/s or undefined. */
 	end(outputTokens: number | undefined): number | undefined {
 		if (this.startedAt !== undefined) {
-			const secs = (this.now() - this.startedAt) / 1000;
-			const tokens = outputTokens && outputTokens > 0 ? outputTokens : this.chars / 4;
-			if (secs >= 0.25 && tokens > 0) this.last = tokens / secs;
+			const ms = this.now() - this.startedAt;
+			const exact = typeof outputTokens === "number" && Number.isFinite(outputTokens) && outputTokens > 0;
+			const tokens = exact ? outputTokens : this.chars / this.charsPerToken;
+			if (ms >= TPS_MIN_FINAL_MS && tokens > 0) this.last = (tokens * 1000) / ms;
+			// Calibrate the live estimator (clamped: hidden reasoning tokens would skew it).
+			if (exact && this.chars > 0) this.charsPerToken = Math.min(6, Math.max(2, this.chars / outputTokens));
 		}
 		this.reset();
 		return this.last;
 	}
 
-	/** Live estimate while streaming, otherwise the last finished value. */
+	/** Sliding-window estimate while streaming, otherwise the last finished value. */
 	current(): number | undefined {
-		if (this.startedAt !== undefined) {
-			const secs = (this.now() - this.startedAt) / 1000;
-			if (secs >= 0.5 && this.chars > 0) return this.chars / 4 / secs;
-			return this.last;
-		}
-		return this.last;
+		if (this.startedAt === undefined) return this.last;
+		const now = this.now();
+		let from = Math.max(this.startedAt, now - this.windowMs);
+		// Burst after a stall (provider buffered, then flushed everything at one timestamp): extend the span back
+		// to the last event before the burst, otherwise the flush would read as a huge spike.
+		const first = this.events[0];
+		if (this.prunedT !== undefined && first && this.events.every((e) => e.t === first.t)) from = Math.max(this.startedAt, this.prunedT);
+		const span = now - from;
+		if (span < TPS_MIN_SPAN_MS) return this.last;
+		let chars = 0;
+		// An event exactly on the window edge belongs to the previous interval, unless the window starts at the stream start.
+		for (const e of this.events) if (e.t > from || (from === this.startedAt && e.t === from)) chars += e.chars;
+		if (chars === 0) return this.events.length === 0 && this.chars === 0 ? this.last : 0;
+		return (chars / this.charsPerToken / span) * 1000;
 	}
 
 	get streaming(): boolean {
