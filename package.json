@@ -1,7 +1,7 @@
 {
   "name": "pi-lumen",
   "version": "0.1.0",
-  "description": "Minimal pi extension: powerline-style status line, Claude Code thinking colors, compact tools and transcript timestamps.",
+  "description": "Minimal pi extension: powerline-style status line, thinking-level colors, compact tools and transcript timestamps.",
   "keywords": ["pi-package", "pi", "pi-extension", "statusline", "powerline"],
   "license": "MIT",
   "type": "module",

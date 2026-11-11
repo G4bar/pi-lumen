@@ -1,10 +1,10 @@
 # pi-lumen
 
 A small extension for [pi](https://pi.dev) (tested on pi 1.5.1): a powerline-style status line,
-Claude Code–style thinking colors, compact `read`/`bash`/`edit`/`write` rows and transcript timestamps.
+thinking-level colors, compact `read`/`bash`/`edit`/`write` rows and transcript timestamps.
 
 ```text
-anthropic · Haiku 5.5 │ think:high 12s │ 84k/200k 42% │ 5h 37% · 7d 12% │ CH 81% · 62 tok/s │ lumen │ main *2 +1
+deepseek · V4 Pro │ think:high 12s │ 84k/200k 42% │ $0.42 │ CH 81% · 62 tok/s │ lumen │ main *2 +1
 ```
 
 ## Install
@@ -25,7 +25,7 @@ captures the git branch and the statuses other extensions set (e.g. pi-lens), sh
 | model | provider · model name |
 | think | level, colored like pi's thinking border; `high`/`xhigh`/`max` use a rainbow; duration of the last thinking |
 | context | `84k/200k 42%`, `?/200k` right after compaction; yellow > 70 %, red > 90 % |
-| spend | API key → `$0.42`; Anthropic OAuth → `5h 37% · 7d 12%`; other OAuth → reported cost or `sub` |
+| spend | API key → `$0.42`; subscription login → `5h 37% · 7d 12%` quota when available, otherwise reported cost or `sub` |
 | cache · tps | `CH 81%` (hit rate of the latest request; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
 | dir | basename of the working directory |
 | git | branch, then `*unstaged +staged ?untracked` |
@@ -97,14 +97,6 @@ Optional, key `lumen` in `settings.json`:
 `icons: "nerd"` adds Nerd Font glyphs. `prompt.icon` draws `❯` in the editor; it is skipped if another
 extension already owns the editor. Tools are registered at load: changing `tools.enabled` needs a restart.
 Keys such as `powerline` or `tokenSpeed` left by pi-powerline-footer are ignored and can be removed.
-
-## ⚠ Unofficial quota endpoint
-
-The 5h/7d numbers come from `GET https://api.anthropic.com/api/oauth/usage`, an **undocumented** endpoint,
-called with your OAuth token **only** when the provider is `anthropic` and you use a subscription login.
-It is cached (90 s), has a 3 s timeout and backs off exponentially (up to 10 min); the token is never logged.
-It may change or disappear at any time, in which case the segment falls back to the cost. Using the token
-outside the official client is your choice: disable with `"quota": { "enabled": false }`.
 
 ## Inspiration and credits
 
