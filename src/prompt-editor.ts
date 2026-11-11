@@ -21,6 +21,9 @@ export function installPromptEditor(ctx: ExtensionContext, paint: () => (s: stri
 
 		constructor(...args: ConstructorParameters<typeof CustomEditor>) {
 			super(...args);
+			// Keep pi's native behaviour: the "Working" status is drawn inside the editor's top border
+			// (the default editor is built with this option; extension editors must opt in).
+			(this as unknown as { embedWorkingStatus: boolean }).embedWorkingStatus = true;
 			this.userPadding = super.getPaddingX();
 			super.setPaddingX(this.userPadding + SLOT);
 		}
