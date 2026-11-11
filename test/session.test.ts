@@ -81,7 +81,8 @@ describe("LumenSession", () => {
 		s.thinkingStart();
 		expect(vi.getTimerCount()).toBe(1);
 		vi.advanceTimersByTime(3000);
-		expect(calls.setHiddenThinkingLabel?.at(-1)?.[0]).toBe("Thinking… 3s");
+		// constant label: pi shares it across all thinking rows, so it must never tick
+		expect(calls.setHiddenThinkingLabel?.every((c) => c[0] === "Thought")).toBe(true);
 		s.thinkingStop();
 		expect(calls.setHiddenThinkingLabel?.at(-1)?.[0]).toBe("Thought");
 		vi.advanceTimersByTime(1000); // let a trailing throttle fire

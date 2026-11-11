@@ -88,3 +88,32 @@ export function saveState(path: string, state: StateOverrides): void {
 		// Best effort: a read-only agent dir must never break the UI.
 	}
 }
+
+type Obj = Record<string, unknown>;
+
+function readLumenKey(path: string): Obj {
+	try {
+		const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+		const lumen = isRecord(raw) ? raw.lumen : undefined;
+		return isRecord(lumen) ? lumen : {};
+	} catch {
+		return {};
+	}
+}
+
+function deepAssign(a: Obj, b: Obj): Obj {
+	const out: Obj = { ...a };
+	for (const [k, v] of Object.entries(b)) {
+		const cur = out[k];
+		out[k] = isRecord(cur) && isRecord(v) ? deepAssign(cur, v) : v;
+	}
+	return out;
+}
+
+/**
+ * `lumen` settings read straight from `<agentDir>/settings.json` and `<cwd>/.pi/settings.json`.
+ * `pi.getSettings()` throws while extensions load, and tool renderers must be registered then.
+ */
+export function loadBootSettings(agentDir: string, cwd: string): Obj {
+	return deepAssign(readLumenKey(join(agentDir, "settings.json")), readLumenKey(join(cwd, ".pi", "settings.json")));
+}

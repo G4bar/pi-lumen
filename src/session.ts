@@ -5,11 +5,11 @@ import { type LumenConfig, loadState, resolveConfig, type StateOverrides, saveSt
 import { GitStatusCache } from "./git.ts";
 import { installPromptEditor, canUsePromptEditor } from "./prompt-editor.ts";
 import { QuotaClient } from "./quota.ts";
+import { RowThinking } from "./thinking-label.ts";
 import { cacheView, computeStats, emptyStats, type LedgerStats, ThinkingTimer, TpsTracker } from "./stats.ts";
 import { spinnerFrames, thinkingPaint } from "./statusline/colors.ts";
 import { fitLine } from "./statusline/layout.ts";
 import type { RenderData } from "./statusline/segments.ts";
-import { formatDuration } from "./time.ts";
 
 const WIDGET_KEY = "pi-lumen";
 const THROTTLE_MS = 250;
@@ -20,6 +20,7 @@ export class LumenSession {
 	cfg: LumenConfig;
 	readonly tps = new TpsTracker();
 	readonly thinking = new ThinkingTimer();
+	private readonly rows = new RowThinking();
 	private ctx: ExtensionContext;
 	private tui: TUI | undefined;
 	private footerData: ReadonlyFooterDataProvider | undefined;
@@ -190,6 +191,7 @@ export class LumenSession {
 			},
 			{ placement: this.cfg.placement === "above" ? "aboveEditor" : "belowEditor" },
 		);
+		this.rows.install();
 		this.applyWorkingIndicator();
 		if (this.cfg.prompt.icon && canUsePromptEditor(ctx)) {
 			this.removePromptEditor = installPromptEditor(ctx, () => {
@@ -208,6 +210,7 @@ export class LumenSession {
 			this.ctx.ui.setWidget(WIDGET_KEY, undefined);
 			this.ctx.ui.setFooter(undefined);
 			this.ctx.ui.setWorkingIndicator();
+			this.rows.dispose();
 			this.ctx.ui.setHiddenThinkingLabel();
 		} catch {
 			/* context already torn down */
@@ -257,28 +260,30 @@ export class LumenSession {
 		}
 	}
 
+	/** Push the per-row labels: pi's global label only triggers the fan-out (see thinking-label.ts). */
 	private applyLabel(): void {
 		if (!this.uiInstalled || !this.thinkingHidden()) return;
-		this.ctx.ui.setHiddenThinkingLabel(`Thinking… ${formatDuration(this.thinking.elapsed() ?? 0)}`);
+		this.ctx.ui.setHiddenThinkingLabel(this.rows.globalLabel());
 	}
 
-	thinkingStart(): void {
+	thinkingStart(ts?: number): void {
 		if (this.disposed) return;
 		this.thinking.start();
 		if (!this.uiInstalled) return; // print/json/rpc: no timer, no UI call
+		if (ts !== undefined) this.rows.start(ts);
 		this.applyLabel();
 		this.tick ??= setInterval(() => {
-			this.applyLabel();
+			if (this.rows.running) this.applyLabel();
 			this.bump();
 		}, 1000);
 		this.tick.unref?.();
 	}
 
-	thinkingStop(): void {
-		const was = this.thinking.running;
+	thinkingStop(ts?: number): void {
 		this.thinking.stop();
+		this.rows.stop(ts);
+		this.applyLabel();
 		this.stopTick();
-		if (was && this.uiInstalled && this.thinkingHidden()) this.ctx.ui.setHiddenThinkingLabel("Thought");
 		this.bump();
 	}
 

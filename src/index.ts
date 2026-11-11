@@ -1,14 +1,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { DEFAULTS, type LumenConfig, loadState, resolveConfig, statePath } from "./config.ts";
+import { DEFAULTS, type LumenConfig, loadBootSettings, loadState, resolveConfig, statePath } from "./config.ts";
 import { LumenSession } from "./session.ts";
 import { registerStamp } from "./stamp.ts";
 import { registerTools } from "./tools/index.ts";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 /** Config as known before any session exists (tool registration happens at load time). */
-function bootConfig(pi: ExtensionAPI): LumenConfig {
+function bootConfig(): LumenConfig {
 	try {
-		return resolveConfig((pi.getSettings() as Record<string, unknown>).lumen, loadState(statePath(getAgentDir())));
+		const dir = getAgentDir();
+		return resolveConfig(loadBootSettings(dir, process.cwd()), loadState(statePath(dir)));
 	} catch {
 		return DEFAULTS;
 	}
@@ -16,7 +17,7 @@ function bootConfig(pi: ExtensionAPI): LumenConfig {
 
 export default function lumen(pi: ExtensionAPI): void {
 	let session: LumenSession | undefined;
-	let cfg: LumenConfig = bootConfig(pi);
+	let cfg: LumenConfig = bootConfig();
 	const getCfg = (): LumenConfig => session?.cfg ?? cfg;
 
 	if (cfg.tools.enabled) registerTools(pi, getCfg);
@@ -49,18 +50,18 @@ export default function lumen(pi: ExtensionAPI): void {
 		switch (ev.type) {
 			case "thinking_start":
 				s.tps.begin();
-				s.thinkingStart();
+				s.thinkingStart(e.message.timestamp);
 				break;
 			case "text_start":
 			case "toolcall_start":
 				s.tps.begin();
 				break;
 			case "thinking_delta":
-				s.thinkingStart();
+				s.thinkingStart(e.message.timestamp);
 				s.tps.delta(ev.delta);
 				break;
 			case "thinking_end":
-				s.thinkingStop();
+				s.thinkingStop(e.message.timestamp);
 				break;
 			case "text_delta":
 			case "toolcall_delta":
@@ -75,7 +76,7 @@ export default function lumen(pi: ExtensionAPI): void {
 		if (!s) return;
 		s.touch(ctx);
 		if (e.message.role === "assistant") {
-			if (s.thinking.running) s.thinkingStop();
+			if (s.thinking.running) s.thinkingStop(e.message.timestamp);
 			s.tps.end(e.message.usage?.output);
 		}
 		s.markStatsDirty();

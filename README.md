@@ -59,13 +59,16 @@ without pi-lumen). Only the renderers change, and `execute` is delegated with th
   └ +3 -1 · 0.02s
 ```
 
-Expand with pi's own key (shown in the hint). `find`/`grep`/`ls` are left alone.
+Expand with pi's own key (shown in the hint). `read` expands to a syntax-highlighted body with a line-number
+gutter (pi's own highlighter, no extra dependency; skipped above 80k characters); images are drawn by pi under
+a one-line `image` row. `find`/`grep`/`ls` are left alone.
 
 ## Thinking and working indicator
 
-The working spinner is painted with the thinking level color. With thinking blocks hidden, the label reads
-`Thinking… 12s` while running and `Thought` afterwards (the label is global in pi, so old rows share it);
-the final duration is in the status line.
+The working spinner is painted with the thinking level color. With thinking blocks hidden, the label is
+each row keeps its own label: the streaming row ticks `Thinking… 12s`, finished rows stay at `Thought for 12s`
+(pi has one global label, so the component's setter is wrapped per row; if pi changes that class the wrapper
+turns itself off). The status line shows the run total (`think:high 12s`).
 
 ## Timestamps
 
@@ -112,4 +115,9 @@ declares MIT but ships no LICENSE file.
 ```bash
 npm install
 npm run typecheck && npm test
+npm run test:e2e   # needs tmux and a working `pi`; set PI_BIN to override the binary
 ```
+
+The e2e suite runs the real pi TUI inside tmux with an isolated agent dir, this checkout as the only extension
+and a scripted mock model server (no network). It asserts on the rendered screen: tool rows, expansion,
+the prompt box, `Working` in the border, status line, timestamps, markdown and per-row thinking labels.
