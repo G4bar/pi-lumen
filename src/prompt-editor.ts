@@ -19,11 +19,10 @@ export function installPromptEditor(ctx: ExtensionContext, paint: () => (s: stri
 		private userPadding = 0;
 		private scrolled = false;
 
-		constructor(...args: ConstructorParameters<typeof CustomEditor>) {
-			super(...args);
+		constructor(tui: ConstructorParameters<typeof CustomEditor>[0], theme: ConstructorParameters<typeof CustomEditor>[1], keybindings: ConstructorParameters<typeof CustomEditor>[2], options?: ConstructorParameters<typeof CustomEditor>[3]) {
 			// Keep pi's native behaviour: the "Working" status is drawn inside the editor's top border
 			// (the default editor is built with this option; extension editors must opt in).
-			(this as unknown as { embedWorkingStatus: boolean }).embedWorkingStatus = true;
+			super(tui, theme, keybindings, { ...options, embedWorkingStatus: true });
 			this.userPadding = super.getPaddingX();
 			super.setPaddingX(this.userPadding + SLOT);
 		}
@@ -53,6 +52,10 @@ export function installPromptEditor(ctx: ExtensionContext, paint: () => (s: stri
 			return lines;
 		}
 	}
-	ctx.ui.setEditorComponent((tui, theme, kb) => new PromptEditor(tui, theme, kb));
-	return () => ctx.ui.setEditorComponent(undefined);
+	const factory = (tui: ConstructorParameters<typeof CustomEditor>[0], theme: ConstructorParameters<typeof CustomEditor>[1], kb: ConstructorParameters<typeof CustomEditor>[2]) => new PromptEditor(tui, theme, kb);
+	ctx.ui.setEditorComponent(factory);
+	// Only give the slot back if it is still ours: another extension may have replaced the editor since.
+	return () => {
+		if (ctx.ui.getEditorComponent() === factory) ctx.ui.setEditorComponent(undefined);
+	};
 }

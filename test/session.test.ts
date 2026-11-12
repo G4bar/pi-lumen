@@ -32,6 +32,7 @@ function fake() {
 		model: { provider: "openrouter", id: "m1", name: "Model One" },
 		modelRegistry: { isUsingOAuth: () => false, getApiKeyForProvider: async () => undefined },
 		sessionManager: {
+			getBranch: () => [],
 			getEntries: () => [{ type: "message", message: { role: "assistant", stopReason: "stop", usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, cost: { total: 0.5 } } } }],
 		},
 		getContextUsage: () => ({ tokens: 1000, contextWindow: 200_000, percent: 0.5 }),
@@ -95,6 +96,35 @@ describe("LumenSession", () => {
 		s.dispose(); // idempotent
 		s.thinkingStart(); // no-op after dispose
 		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("gives the footer back only while it is still ours", () => {
+		const mk = (replaced: boolean) => {
+			const { ctx, pi, calls } = fake();
+			const s = new LumenSession(pi as any, ctx as any);
+			s.installUi();
+			const factory = calls.setFooter?.[0]?.[0] as (tui: unknown, theme: unknown, fd: unknown) => { dispose(): void };
+			const comp = factory({ requestRender() {} }, theme, { onBranchChange: () => () => {}, getGitBranch: () => null, getExtensionStatuses: () => new Map() });
+			if (replaced) comp.dispose(); // pi disposes our footer when another extension sets its own
+			s.uninstallUi();
+			return calls.setFooter?.filter((c) => c[0] === undefined).length ?? 0;
+		};
+		expect(mk(false)).toBe(1);
+		expect(mk(true)).toBe(0);
+	});
+
+	it("does not re-push an unchanged hidden-thinking label (pi rebuilds every row on each call)", () => {
+		const { ctx, pi, calls } = fake();
+		const s = new LumenSession(pi as any, ctx as any);
+		s.installUi();
+		s.thinkingStart(1);
+		const before = calls.setHiddenThinkingLabel?.length ?? 0;
+		s.thinkingStart(1);
+		s.thinkingStart(1);
+		expect(calls.setHiddenThinkingLabel?.length).toBe(before);
+		vi.advanceTimersByTime(1000); // label text changes → pushed again
+		expect(calls.setHiddenThinkingLabel?.length).toBe(before + 1);
+		s.dispose();
 	});
 
 	it("disabled config or non-tui mode makes zero UI calls", () => {

@@ -45,11 +45,37 @@ export function emptyStats(): LedgerStats {
 	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, hasCost: false };
 }
 
-/** Fold a list of session entries (any shape) into ledger stats. Unknown entries are ignored. */
-export function computeStats(entries: readonly unknown[]): LedgerStats {
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
+/** Usage billed by one entry, mirroring pi's footer: assistant and toolResult messages, `usage`, `compaction`, `branch_summary`. */
+function entryUsage(entry: Record<string, unknown>): UsageLike | undefined {
+	switch (entry.type) {
+		case "message": {
+			const m = entry.message;
+			return isRecord(m) && (m.role === "assistant" || m.role === "toolResult") ? asUsage(m.usage) : undefined;
+		}
+		case "usage":
+		case "compaction":
+		case "branch_summary":
+			return asUsage(entry.usage);
+		default:
+			return undefined;
+	}
+}
+
+/**
+ * Fold session entries (any shape) into ledger stats. Unknown entries are ignored.
+ *
+ * Totals (tokens, cost) cover `entries`: the whole ledger, every branch ever billed, like pi's footer.
+ * The cache hit-rate describes the request the model would continue from, so it is computed on `branch`
+ * (the active path, defaults to `entries`): it resets at the latest compaction / model change on that path.
+ */
+export function computeStats(entries: readonly unknown[], branch: readonly unknown[] = entries): LedgerStats {
 	const s = emptyStats();
-	const add = (u: UsageLike | undefined): void => {
-		if (!u) return;
+	for (const e of entries) {
+		if (!isRecord(e)) continue;
+		const u = entryUsage(e);
+		if (!u) continue;
 		s.input += u.input;
 		s.output += u.output;
 		s.cacheRead += u.cacheRead;
@@ -57,31 +83,18 @@ export function computeStats(entries: readonly unknown[]): LedgerStats {
 		const c = u.cost?.total ?? 0;
 		s.cost += c;
 		if (c > 0) s.hasCost = true;
-	};
-	for (const e of entries) {
-		if (typeof e !== "object" || e === null) continue;
-		const entry = e as Record<string, unknown>;
-		switch (entry.type) {
-			case "message": {
-				const m = entry.message as Record<string, unknown> | undefined;
-				if (m?.role !== "assistant") break;
-				const u = asUsage(m.usage);
-				add(u);
-				if (u && m.stopReason !== "error" && m.stopReason !== "aborted" && u.input + u.cacheRead + u.cacheWrite + u.output > 0) {
-					s.lastRequest = { input: u.input, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite };
-				}
-				break;
-			}
-			case "usage":
-			case "compaction":
-				add(asUsage(entry.usage));
-				if (entry.type === "compaction") s.lastRequest = undefined;
-				break;
-			case "model_change":
-				s.lastRequest = undefined;
-				break;
-			default:
-				break;
+	}
+	for (const e of branch) {
+		if (!isRecord(e)) continue;
+		if (e.type === "compaction" || e.type === "model_change") {
+			s.lastRequest = undefined;
+			continue;
+		}
+		const m = e.type === "message" ? e.message : undefined;
+		if (!isRecord(m) || m.role !== "assistant") continue;
+		const u = asUsage(m.usage);
+		if (u && m.stopReason !== "error" && m.stopReason !== "aborted" && u.input + u.cacheRead + u.cacheWrite + u.output > 0) {
+			s.lastRequest = { input: u.input, cacheRead: u.cacheRead, cacheWrite: u.cacheWrite };
 		}
 	}
 	return s;

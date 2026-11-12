@@ -33,6 +33,9 @@ export class LumenSession {
 	private tick: ReturnType<typeof setInterval> | undefined;
 	private disposed = false;
 	private uiInstalled = false;
+	/** False once pi disposed our footer because another extension installed its own. */
+	private footerOwned = false;
+	private lastLabel: string | undefined;
 	private removePromptEditor: (() => void) | undefined;
 	private readonly git: GitStatusCache;
 	private quota: QuotaClient | undefined;
@@ -92,7 +95,7 @@ export class LumenSession {
 	private data(): RenderData {
 		const ctx = this.ctx;
 		if (this.statsDirty || Date.now() - this.statsAt > STATS_MAX_AGE_MS) {
-			this.stats = computeStats(ctx.sessionManager.getEntries());
+			this.stats = computeStats(ctx.sessionManager.getEntries(), ctx.sessionManager.getBranch());
 			this.statsAt = Date.now();
 			this.statsDirty = false;
 		}
@@ -159,11 +162,19 @@ export class LumenSession {
 		if (ctx.mode !== "tui" || this.uiInstalled || !this.cfg.enabled) return;
 		this.uiInstalled = true;
 		// The native footer is replaced by an empty component that only captures footerData.
+		this.footerOwned = true;
 		ctx.ui.setFooter((tui, _theme, fd) => {
 			this.footerData = fd;
 			this.tui ??= tui;
 			const unsub = fd.onBranchChange(() => this.bump());
-			return { render: () => [], invalidate() {}, dispose: unsub };
+			return {
+				render: () => [],
+				invalidate() {},
+				dispose: () => {
+					unsub();
+					this.footerOwned = false; // replaced (or removed): nothing left to restore
+				},
+			};
 		});
 		let cachedWidth = -1;
 		let cachedVersion = -1;
@@ -208,7 +219,9 @@ export class LumenSession {
 			this.removePromptEditor?.();
 			this.removePromptEditor = undefined;
 			this.ctx.ui.setWidget(WIDGET_KEY, undefined);
-			this.ctx.ui.setFooter(undefined);
+			if (this.footerOwned) this.ctx.ui.setFooter(undefined);
+			this.footerOwned = false;
+			this.lastLabel = undefined;
 			this.ctx.ui.setWorkingIndicator();
 			this.rows.dispose();
 			this.ctx.ui.setHiddenThinkingLabel();
@@ -263,7 +276,10 @@ export class LumenSession {
 	/** Push the per-row labels: pi's global label only triggers the fan-out (see thinking-label.ts). */
 	private applyLabel(): void {
 		if (!this.uiInstalled || !this.thinkingHidden()) return;
-		this.ctx.ui.setHiddenThinkingLabel(this.rows.globalLabel());
+		const label = this.rows.globalLabel();
+		if (label === this.lastLabel) return; // every call makes pi rebuild all assistant rows
+		this.lastLabel = label;
+		this.ctx.ui.setHiddenThinkingLabel(label);
 	}
 
 	thinkingStart(ts?: number): void {

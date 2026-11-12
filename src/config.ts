@@ -101,19 +101,13 @@ function readLumenKey(path: string): Obj {
 	}
 }
 
-function deepAssign(a: Obj, b: Obj): Obj {
-	const out: Obj = { ...a };
-	for (const [k, v] of Object.entries(b)) {
-		const cur = out[k];
-		out[k] = isRecord(cur) && isRecord(v) ? deepAssign(cur, v) : v;
-	}
-	return out;
-}
-
 /**
- * `lumen` settings read straight from `<agentDir>/settings.json` and `<cwd>/.pi/settings.json`.
+ * `lumen` settings read straight from `<agentDir>/settings.json`.
  * `pi.getSettings()` throws while extensions load, and tool renderers must be registered then.
+ * Project settings are deliberately not read here: at load time pi's trust decision for the project is not
+ * known to extensions. Once a session exists, `pi.getSettings()` supplies the (trust-aware) merged values,
+ * so only load-time switches such as `tools.enabled` are global-only.
  */
-export function loadBootSettings(agentDir: string, cwd: string): Obj {
-	return deepAssign(readLumenKey(join(agentDir, "settings.json")), readLumenKey(join(cwd, ".pi", "settings.json")));
+export function loadBootSettings(agentDir: string): Obj {
+	return readLumenKey(join(agentDir, "settings.json"));
 }

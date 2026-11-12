@@ -1,6 +1,7 @@
 import { createReadToolDefinition, type ExtensionAPI, getLanguageFromPath, highlightCode, type ReadToolDetails, type Theme } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
 import { callLine, plural, previewLines, resultLine, textOf } from "./format.ts";
+import { builtinToolOptions } from "./options.ts";
 
 /** Skip syntax highlighting above this many characters (keeps rendering instant). */
 const MAX_HL_CHARS = 80_000;
@@ -41,7 +42,7 @@ export function registerRead(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 	pi.registerTool({
 		...base,
 		renderShell: "default",
-		execute: (id, params, signal, onUpdate, ctx) => createReadToolDefinition(ctx.cwd).execute(id, params, signal, onUpdate, ctx),
+		execute: (id, params, signal, onUpdate, ctx) => createReadToolDefinition(ctx.cwd, builtinToolOptions(pi).read).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
 			let range = "";
 			if (args.offset || args.limit) range = ` :${args.offset ?? 1}${args.limit ? `+${args.limit}` : ""}`;

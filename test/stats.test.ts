@@ -35,6 +35,27 @@ describe("computeStats", () => {
 	});
 });
 
+describe("computeStats: pi footer parity and branches", () => {
+	it("counts toolResult usage (subagents) and branch_summary usage", () => {
+		const s = computeStats([
+			msg(usage({ cost: { total: 1 } })),
+			{ type: "message", message: { role: "toolResult", usage: usage({ cost: { total: 2 } }) } },
+			{ type: "branch_summary", usage: usage({ cost: { total: 4 } }) },
+		]);
+		expect(s.cost).toBeCloseTo(7);
+	});
+	it("totals cover every entry, lastRequest only the active branch", () => {
+		const other = msg(usage({ cacheRead: 10, cost: { total: 1 } }));
+		const mine = msg(usage({ cacheRead: 70, cost: { total: 1 } }));
+		const s = computeStats([other, mine], [mine]);
+		expect(s.cost).toBeCloseTo(2);
+		expect(s.lastRequest?.cacheRead).toBe(70);
+		// a compaction on another branch must not reset this one
+		const s2 = computeStats([mine, { type: "compaction" }], [mine]);
+		expect(s2.lastRequest?.cacheRead).toBe(70);
+	});
+});
+
 describe("cache view", () => {
 	it("hidden when never reported", () => {
 		expect(cacheView(computeStats([msg(usage())]))).toEqual({ kind: "hidden" });

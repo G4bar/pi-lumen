@@ -1,10 +1,11 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBootSettings } from "../src/config.ts";
 import { RowThinking } from "../src/thinking-label.ts";
 import { outputLines } from "../src/tools/bash.ts";
+import { builtinToolOptions } from "../src/tools/options.ts";
 import { splitRead } from "../src/tools/read.ts";
 
 describe("splitRead", () => {
@@ -73,15 +74,24 @@ describe("RowThinking", () => {
 });
 
 describe("loadBootSettings", () => {
-	it("reads global and project `lumen` keys (project wins, deep merge); tolerates missing files", () => {
+	it("reads the global `lumen` key only (project settings are not trusted at load time); tolerates missing files", () => {
 		const root = mkdtempSync(join(tmpdir(), "lumen-cfg-"));
 		const agent = join(root, "agent");
-		const proj = join(root, "proj");
 		mkdirSync(agent);
-		mkdirSync(join(proj, ".pi"), { recursive: true });
 		writeFileSync(join(agent, "settings.json"), JSON.stringify({ lumen: { tools: { enabled: false, previewLines: 5 }, placement: "above" } }));
-		writeFileSync(join(proj, ".pi", "settings.json"), JSON.stringify({ lumen: { tools: { previewLines: 9 } } }));
-		expect(loadBootSettings(agent, proj)).toEqual({ tools: { enabled: false, previewLines: 9 }, placement: "above" });
-		expect(loadBootSettings(join(root, "none"), join(root, "none"))).toEqual({});
+		expect(loadBootSettings(agent)).toEqual({ tools: { enabled: false, previewLines: 5 }, placement: "above" });
+		expect(loadBootSettings(join(root, "none"))).toEqual({});
+	});
+});
+
+describe("builtinToolOptions", () => {
+	it("forwards shellCommandPrefix, shellPath (tilde expanded) and images.autoResize like pi does", () => {
+		const o = builtinToolOptions({ getSettings: () => ({ shellCommandPrefix: "set -e", shellPath: "~/bin/zsh", images: { autoResize: false } }) } as never);
+		expect(o.bash).toEqual({ commandPrefix: "set -e", shellPath: join(homedir(), "bin/zsh") });
+		expect(o.read).toEqual({ autoResizeImages: false });
+	});
+	it("falls back to SDK defaults when settings are empty or unavailable", () => {
+		expect(builtinToolOptions({ getSettings: () => ({}) } as never)).toEqual({ bash: { commandPrefix: undefined, shellPath: undefined }, read: {} });
+		expect(builtinToolOptions({ getSettings: () => { throw new Error("loading"); } } as never)).toEqual({ bash: {}, read: {} });
 	});
 });

@@ -1,6 +1,7 @@
 import { type BashToolDetails, createBashToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
 import { callLine, oneLine, plural, previewLines, resultLine, textOf } from "./format.ts";
+import { builtinToolOptions } from "./options.ts";
 
 const EXIT_RE = /Command exited with code (\d+)\s*$/;
 const NOTICE_RE = /\n*\[Showing (?:last|lines)[^\]]*\]\s*$/;
@@ -22,7 +23,7 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 	pi.registerTool({
 		...base,
 		renderShell: "default",
-		execute: (id, params, signal, onUpdate, ctx) => createBashToolDefinition(ctx.cwd).execute(id, params, signal, onUpdate, ctx),
+		execute: (id, params, signal, onUpdate, ctx) => createBashToolDefinition(ctx.cwd, builtinToolOptions(pi).bash).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
 			const suffix = args.timeout ? ` · timeout ${args.timeout}s` : "";
 			return textOf(ctx, callLine(theme, ctx, "Bash", `${args.command ?? ""}${suffix}`));

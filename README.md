@@ -1,6 +1,6 @@
 # pi-lumen
 
-A small extension for [pi](https://pi.dev) (tested on pi 1.5.1): a powerline-style status line,
+A small extension for [pi](https://pi.dev) (tested on pi 1.5.2): a powerline-style status line,
 thinking-level colors, compact `read`/`bash`/`edit`/`write` rows and transcript timestamps.
 
 ```text
@@ -26,7 +26,7 @@ captures the git branch and the statuses other extensions set (e.g. pi-lens), sh
 | think | level, colored like pi's thinking border; `high`/`xhigh`/`max` use a rainbow; duration of the last thinking |
 | context | `84k/200k 42%`, `?/200k` right after compaction; yellow > 70 %, red > 90 % |
 | spend | API key → `$0.42`; subscription login → `5h 37% · 7d 12%` quota when available, otherwise reported cost or `sub` |
-| cache · tps | `CH 81%` (hit rate of the latest request; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
+| cache · tps | `CH 81%` (hit rate of the latest request on the active branch; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
 | dir | basename of the working directory |
 | git | branch, then `*unstaged +staged ?untracked` |
 | ext | statuses from other extensions |
@@ -50,7 +50,8 @@ Placement and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no API to 
 
 `read`, `bash`, `edit`, `write` are re-registered with the SDK definition spread, so schemas,
 `promptSnippet`/`promptGuidelines` and results are unchanged (the system prompt is byte-identical with and
-without pi-lumen). Only the renderers change, and `execute` is delegated with the live `ctx.cwd`.
+without pi-lumen). Only the renderers change, and `execute` is delegated with the live `ctx.cwd` and the same
+options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.autoResize`, read on every call).
 
 ```text
 ● Bash (npm test)
@@ -97,9 +98,11 @@ Optional, key `lumen` in `settings.json`:
 }
 ```
 
+`tools.enabled` is read from the global `settings.json` only (tools are registered at load, before pi's trust
+decision about the project is known); every other key also honours the project `.pi/settings.json` as merged by pi.
 `icons: "nerd"` adds Nerd Font glyphs. `prompt.icon` draws `❯` in the editor; it is skipped if another
 extension already owns the editor. Tools are registered at load: changing `tools.enabled` needs a restart.
-Keys such as `powerline` or `tokenSpeed` left by pi-powerline-footer are ignored and can be removed.
+Keys such as `powerline` (pi-powerline-footer) or `tokenSpeed` (pi-token-speed) are ignored and can be removed.
 
 ## Inspiration and credits
 
@@ -107,7 +110,8 @@ See [NOTICE.md](NOTICE.md). Ideas and a few small functions come from
 [pi-powerline-footer](https://github.com/nicobailon/pi-powerline-footer) (segments, colors, rainbow, cache
 formula, git parsing), [pi-stamp](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-stamp)
 (timestamp entries) and [pi-pretty](https://github.com/heyhuynhgiabuu/pi-pretty) (compact tool rows,
-duration format, prompt glyph), which in turn credit Powerlevel10k and oh-my-pi. pi-powerline-footer
+duration format, prompt glyph, per-row thinking labels) and
+[pi-token-speed](https://github.com/gsanhueza/pi-token-speed) (tok/s sliding window), which in turn credit Powerlevel10k and oh-my-pi. pi-powerline-footer
 declares MIT but ships no LICENSE file.
 
 ## Development

@@ -9,7 +9,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 function bootConfig(): LumenConfig {
 	try {
 		const dir = getAgentDir();
-		return resolveConfig(loadBootSettings(dir, process.cwd()), loadState(statePath(dir)));
+		return resolveConfig(loadBootSettings(dir), loadState(statePath(dir)));
 	} catch {
 		return DEFAULTS;
 	}
