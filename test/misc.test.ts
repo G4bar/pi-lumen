@@ -1,4 +1,4 @@
-import { detectNerdFonts, resolveIcons, thinkIcon } from "../src/statusline/icons.ts";
+import { detectNerdFonts, resolveIcons } from "../src/statusline/icons.ts";
 import { describe, expect, it } from "vitest";
 import { DEFAULTS, resolveConfig } from "../src/config.ts";
 import { isStampData, stampLabel } from "../src/stamp.ts";
@@ -76,9 +76,9 @@ describe("nerd icons", () => {
 		expect(resolveIcons("none", env({ TERM_PROGRAM: "kitty" }))).toBe("none");
 		expect(resolveIcons("nerd", env({}))).toBe("nerd");
 	});
-	it("thinking level glyphs: one per level, none for off/max", () => {
-		expect(thinkIcon("high")).toBe("\uF111 ");
-		expect(thinkIcon("off")).toBe("");
-		expect(thinkIcon("max")).toBe("");
+	it("auto also turns on when a Nerd Font is installed (unknown terminal), unless forced off", () => {
+		expect(resolveIcons("auto", env({ TERM: "xterm-256color" }), () => true)).toBe("nerd");
+		expect(resolveIcons("auto", env({ TERM: "xterm-256color" }), () => false)).toBe("none");
+		expect(resolveIcons("auto", env({ LUMEN_NERD_FONTS: "0" }), () => true)).toBe("none");
 	});
 });

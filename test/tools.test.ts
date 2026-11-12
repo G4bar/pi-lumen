@@ -5,7 +5,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 import { loadBootSettings } from "../src/config.ts";
 import { RowThinking } from "../src/thinking-label.ts";
-import { Block, changeBody, framed, framedLines } from "../src/tools/format.ts";
+import { Block, changeBody, framed, framedLines, prefixed } from "../src/tools/format.ts";
 import { outputLines } from "../src/tools/bash.ts";
 import { builtinToolOptions } from "../src/tools/options.ts";
 import { codeBody, splitRead } from "../src/tools/read.ts";
@@ -163,5 +163,27 @@ describe("changeBody", () => {
 		expect(capped.body).toContain("… 2 more lines");
 		expect(changeBody(theme, rows, true, 2, 3).body).toContain("… 1 more lines");
 		expect(changeBody(theme, [], false, 5, 5)).toEqual({ body: "", toggle: false });
+	});
+});
+
+describe("prefixed / wrapped call rows", () => {
+	it("wrapped pieces repeat the gutter instead of falling under it", () => {
+		const rows = prefixed("  │ ", "word ".repeat(10).trim(), 20, true);
+		expect(rows.length).toBeGreaterThan(1);
+		for (const r of rows) {
+			expect(r.startsWith("  │ ")).toBe(true);
+			expect(visibleWidth(r)).toBeLessThanOrEqual(20);
+		}
+	});
+	it("collapsed: one row, cut with an ellipsis", () => {
+		const rows = prefixed("  │ ", "x".repeat(60), 20, false);
+		expect(rows).toHaveLength(1);
+		expect(visibleWidth(rows[0] ?? "")).toBeLessThanOrEqual(20);
+		expect(rows[0]).toContain("…");
+	});
+	it("Block accepts width-aware content and indents its own wrapped continuations", () => {
+		expect(new Block((w) => `w=${w}`).render(33)).toEqual(["w=33"]);
+		const rows = new Block("word ".repeat(12).trim(), true).render(20);
+		expect(rows.slice(1).every((r) => r.startsWith("  "))).toBe(true);
 	});
 });

@@ -57,7 +57,7 @@ describe("LumenSession", () => {
 		const comp = factory({ requestRender() {} });
 		const [line] = comp.render(120);
 		expect(line).toContain("openrouter · Model One");
-		expect(line).toContain("[med]");
+		expect(line).toContain("think:medium");
 		expect(line).toContain("$0.50");
 		s.dispose();
 	});

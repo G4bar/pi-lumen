@@ -4,7 +4,7 @@ A small extension for [pi](https://pi.dev) (tested on pi 1.5.2): a powerline-sty
 thinking-level colors, compact `read`/`bash`/`edit`/`write` rows and transcript timestamps.
 
 ```text
-deepseek · V4 Pro │ [high] 12s │ 84k/200k 42% │ $0.42 │ CH 81% · 62 tok/s │ lumen │ main *2 +1
+deepseek · V4 Pro │ think:high │ 84k/200k 42% │ $0.42 │ CH 81% · 62 tok/s │ lumen │ main *2 +1
 ```
 
 ## Install
@@ -25,7 +25,7 @@ back in with `inlineStatusKeys`.
 | Segment | Content |
 |---|---|
 | model | provider · model name |
-| think | level, colored like pi's thinking border; `high`/`xhigh`/`max` use a rainbow; duration of the last thinking |
+| think | level, colored like pi's thinking border; `high`/`xhigh`/`max` use a rainbow |
 | context | `84k/200k 42%`, `?/200k` right after compaction; yellow > 70 %, red > 90 % |
 | spend | API key → `$0.42`; subscription login → `5h 37% · 7d 12%` quota when available, otherwise reported cost or `sub` |
 | cache · tps | `CH 81%` (hit rate of the latest request on the active branch; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
@@ -84,12 +84,12 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
   flattening into a single row.
 - **Narrow terminals**: every row is cut to the real width with `…` (never wrapped into unindented fragments), and the
   rules are drawn at that width. An expanded call header wraps instead, so the full command stays readable.
-- **Clock time** (date when it is not today) is the **start** of the call, shown only when it is at least
-  `tools.timeGapSec` (5) seconds away from the last visible time (the run start, which already carries the user
-  stamp, or the previous visible tool): fast runs show no repeated `14:32:07`, long ones keep a timeline. It is
-  written into the tool result's `details` (`lumenAt`) by a `tool_result` handler, so pi persists it with the
-  result: no extra session entries, nothing sent to the model, still there after a resume. `tools.time: false`
-  turns it off, `timeGapSec: 0` shows it on every row. Only `read`/`bash`/`edit`/`write` rows have it.
+- **Clock time** is **off by default**: the user and final-answer stamps already carry it, so repeating it on every
+  command was noise. `tools.time: true` turns it on: it then shows the **start** of the call (date when it is not
+  today), only when it is at least `tools.timeGapSec` (5) seconds away from the last visible time, so fast runs
+  stay clean and long ones keep a timeline (`timeGapSec: 0` = every row). It is written into the tool result's
+  `details` (`lumenAt`) by a `tool_result` handler, so pi persists it with the result: no extra session entries,
+  nothing sent to the model, still there after a resume. Only `read`/`bash`/`edit`/`write` rows have it.
 
 ```text
 ● Read (src/a.ts)
@@ -112,7 +112,7 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
 The working spinner is painted with the thinking level color. With thinking blocks hidden, the label is
 each row keeps its own label: the streaming row ticks `Thinking… 12s`, finished rows stay at `Thought for 12s`
 (pi has one global label, so the component's setter is wrapped per row; if pi changes that class the wrapper
-turns itself off). The status line shows the run total (`[high] 12s`).
+turns itself off). The status line shows only the level; thinking time lives in those row labels.
 
 ## Timestamps
 
@@ -134,7 +134,7 @@ Optional, key `lumen` in `settings.json`:
     "git": { "statusTtlMs": 2000 },
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
-    "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": true, "timeGapSec": 5, "shiki": true, "theme": "github-dark" },
+    "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": false, "timeGapSec": 5, "shiki": true, "theme": "github-dark" },
     "inlineStatusKeys": []
   }
 }
@@ -142,7 +142,7 @@ Optional, key `lumen` in `settings.json`:
 
 `tools.enabled` is read from the global `settings.json` only (tools are registered at load, before pi's trust
 decision about the project is known); every other key also honours the project `.pi/settings.json` as merged by pi.
-`icons` is `auto` (default: Nerd Font glyphs when the terminal looks like Ghostty, kitty, WezTerm, iTerm, Alacritty or Kaku; override with `POWERLINE_NERD_FONTS=1|0`), `nerd` or `none`. The glyphs are on the model, thinking level (one per level), context, directory and git branch. Tools are registered at load: changing `tools.enabled` needs a restart.
+`icons` is `auto` (default: Nerd Font glyphs when the terminal looks like Ghostty, kitty, WezTerm, iTerm, Alacritty or Kaku, or when `fc-list` finds an installed Nerd Font; force with `POWERLINE_NERD_FONTS=1|0` or `LUMEN_NERD_FONTS=1|0`), `nerd` or `none`. The glyphs are on the model, context, directory and git branch. Tools are registered at load: changing `tools.enabled` needs a restart.
 `inlineStatusKeys` is a list of status keys (as shown by `/status`, e.g. `["sync"]`) to keep in the status line.
 Keys such as `powerline` (pi-powerline-footer) or `tokenSpeed` (pi-token-speed) are ignored and can be removed.
 

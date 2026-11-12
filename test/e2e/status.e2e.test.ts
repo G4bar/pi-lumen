@@ -9,7 +9,7 @@ describe.skipIf(!hasTmux || !hasPi)("/status", () => {
 
 	it("keeps other extensions' statuses out of the status line and shows them in /status", async () => {
 		const s = await h.start({ responder: () => ({ text: "fine" }), extensions: [FIXTURE] });
-		await s.waitFor("[med]");
+		await s.waitFor("think:");
 		expect(s.screen()).not.toContain("synced just-now");
 		s.send("/status");
 		await s.waitFor("Extension status");

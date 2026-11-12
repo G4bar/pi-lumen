@@ -1,6 +1,6 @@
 import { type BashToolDetails, createBashToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
-import { callLine, expandHint, framedLines, oneLine, plural, resultLine, textOf } from "./format.ts";
+import { callLine, expandHint, framedLines, oneLine, plural, prefixed, resultLine, textOf } from "./format.ts";
 import { rowAt } from "./at.ts";
 import { builtinToolOptions } from "./options.ts";
 
@@ -31,11 +31,16 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 			const timeout = args.timeout ? `timeout ${args.timeout}s` : "";
 			const cmdLines = String(args.command ?? "").split("\n");
 			if (cmdLines.length === 1) return textOf(ctx, callLine(theme, ctx, "Bash", `${cmdLines[0]}${timeout ? ` · ${timeout}` : ""}`), ctx.expanded);
-			// Multi-line script: the real lines under the header, not one flattened row.
+			// Multi-line script: the real lines under the header. Long lines wrap (expanded) or are cut (collapsed) behind the `│`, never under it.
 			const max = ctx.expanded ? cmdLines.length : MAX_CALL_LINES;
-			const rows = cmdLines.slice(0, max).map((l) => `${theme.fg("dim", "  │")} ${theme.fg("toolOutput", l)}`);
-			if (cmdLines.length > max) rows.push(`${theme.fg("dim", "  │")} ${theme.fg("muted", `… +${cmdLines.length - max} lines`)}`);
-			return textOf(ctx, [callLine(theme, ctx, "Bash", timeout || undefined), ...rows].join("\n"), ctx.expanded);
+			const gutter = `${theme.fg("dim", "  │")} `;
+			const header = callLine(theme, ctx, "Bash", timeout || undefined);
+			const hidden = cmdLines.length > max ? theme.fg("muted", `… +${cmdLines.length - max} lines`) : undefined;
+			return textOf(
+				ctx,
+				(width) => [header, ...cmdLines.slice(0, max).flatMap((l) => prefixed(gutter, theme.fg("toolOutput", l), width, ctx.expanded)), ...(hidden ? [`${gutter}${hidden}`] : [])].join("\n"),
+				false,
+			);
 		},
 		renderResult(result, { expanded, isPartial }, theme, ctx) {
 			const text = result.content.map((c) => (c.type === "text" ? c.text : "")).join("\n");

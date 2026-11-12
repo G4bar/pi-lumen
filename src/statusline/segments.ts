@@ -3,8 +3,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { GitCounts } from "../git.ts";
 import type { Quota } from "../quota.ts";
-import { formatDuration } from "../time.ts";
-import { NERD, thinkIcon } from "./icons.ts";
+import { NERD } from "./icons.ts";
 import { cacheColor, contextColor, quotaColor, thinkingPaint } from "./colors.ts";
 
 /** Everything a render needs, gathered by the caller so segments stay pure. */
@@ -14,7 +13,6 @@ export interface RenderData {
 	provider?: string;
 	modelName?: string;
 	thinkingLevel?: string;
-	thinkingMs?: number;
 	context?: { tokens: number | null; window: number; percent: number | null };
 	spend: { mode: "api"; cost: number } | { mode: "oauth"; quota?: Quota; stale: boolean; cost?: number };
 	cache: { kind: "hidden" } | { kind: "none" } | { kind: "rate"; percent: number };
@@ -39,18 +37,9 @@ export function modelSegment(d: RenderData, maxWidth?: number): string {
 	return d.theme.fg("accent", text);
 }
 
-/** Short level names, as in pi-powerline-footer. */
-const LEVEL_SHORT: Record<string, string> = { minimal: "min", low: "low", medium: "med", high: "high", xhigh: "xhi", max: "max" };
-
-/** `● high` with Nerd Fonts, `[high]` without; hidden when thinking is off. Colored like pi's thinking border. */
-export function thinkSegment(d: RenderData): string | undefined {
+export function thinkSegment(d: RenderData): string {
 	const level = d.thinkingLevel ?? "off";
-	if (level === "off") return undefined;
-	const short = LEVEL_SHORT[level] ?? level;
-	const label = d.icons === "nerd" && thinkIcon(level) ? `${thinkIcon(level)}${short}` : `[${short}]`;
-	let out = thinkingPaint(d.theme, level)(label);
-	if (d.thinkingMs !== undefined && d.thinkingMs >= 1000) out += d.theme.fg("dim", ` ${formatDuration(d.thinkingMs)}`);
-	return out;
+	return thinkingPaint(d.theme, level)(`think:${level}`);
 }
 
 export function contextSegment(d: RenderData): string {

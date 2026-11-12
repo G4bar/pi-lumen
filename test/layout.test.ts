@@ -17,7 +17,6 @@ const data = (over: Partial<RenderData> = {}): RenderData => ({
 	provider: "anthropic",
 	modelName: "Claude Opus 4",
 	thinkingLevel: "high",
-	thinkingMs: 12_000,
 	context: { tokens: 84_000, window: 200_000, percent: 42 },
 	spend: { mode: "oauth", quota: { fiveHour: 37, sevenDay: 12 }, stale: false },
 	cache: { kind: "rate", percent: 81 },
@@ -35,7 +34,7 @@ describe("status line", () => {
 	it("renders every segment at full width", () => {
 		const line = plain(buildLine(data(), 0, "│"));
 		expect(line).toContain("anthropic · Opus 4");
-		expect(line).toContain("[high] 12s");
+		expect(line).toContain("think:high");
 		expect(line).toContain("84k/200k 42%");
 		expect(line).toContain("5h 37% · 7d 12%");
 		expect(line).toContain("CH 81% · 62 tok/s");
@@ -63,14 +62,14 @@ describe("status line", () => {
 		expect(levels[6]).not.toContain("main");
 		for (const l of levels) {
 			expect(l).toContain("Opus 4");
-			expect(l).toContain("[high]");
+			expect(l).toContain("think:high");
 			expect(l).toContain("84k/200k");
 		}
 	});
 
 	it("keeps model/think/context and truncates the model last", () => {
 		const line = plain(fitLine(data({ modelName: "A very long model name indeed" }), 45));
-		expect(line).toContain("[high]");
+		expect(line).toContain("think:high");
 		expect(line).toContain("84k/200k");
 		expect(line).toContain("…");
 	});
@@ -123,21 +122,11 @@ describe("colors and formatting", () => {
 	});
 });
 
-describe("thinking segment", () => {
-	it("short level names, no `think:` label, hidden when off", () => {
-		expect(plain(buildLine(data({ thinkingLevel: "xhigh", thinkingMs: undefined }), 0, "│"))).toContain("[xhi]");
-		expect(plain(buildLine(data({ thinkingLevel: "medium" }), 0, "│"))).toContain("[med]");
-		const off = plain(buildLine(data({ thinkingLevel: "off" }), 0, "│"));
-		expect(off).not.toMatch(/\[off\]|think/);
-		expect(off).toContain("84k/200k");
-	});
-});
-
 describe("nerd icons in the status line", () => {
-	it("adds glyphs to model, think, context, dir and git; none mode adds none", () => {
+	it("adds glyphs to model, context, dir and git (think stays plain text); none mode adds none", () => {
 		const nerd = plain(buildLine(data({ icons: "nerd" }), 0, "│"));
-		expect(nerd).toContain("\uF111 high");
-		expect(nerd).not.toContain("think");
+		expect(nerd).toContain("think:high");
+		expect(nerd).not.toContain("\uF111");
 		expect(nerd).toContain("\uF1C0 84k/200k");
 		expect(nerd).toContain("\uF115 lumen");
 		expect(nerd).toContain("\uF126 main");

@@ -64,7 +64,7 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 	it("below the prompt by default: model, thinking level, context, cost, dir", async () => {
 		const s = await h.start({ responder: respond([]) });
 		const last = s.screen().split("\n").at(-1) ?? "";
-		expect(last).toMatch(/^mock · Mock Model │ \[med\] │ 0\/200k 0% │ \$0\.00 │ project$/);
+		expect(last).toMatch(/^mock · Mock Model │ think:medium │ 0\/200k 0% │ \$0\.00 │ project$/);
 	});
 
 	it("updates after a reply: tokens used, throughput", async () => {
@@ -77,7 +77,7 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 	});
 
 	it("placement above puts it over the prompt box", async () => {
-		const s = await h.start({ responder: respond([]), settings: { lumen: { quota: { enabled: false }, placement: "above" } } });
+		const s = await h.start({ responder: respond([]), settings: { lumen: { quota: { enabled: false }, icons: "none", placement: "above" } } });
 		const lines = s.screen().split("\n");
 		const status = lines.findIndex((l) => l.startsWith("mock · Mock Model"));
 		const top = lines.findIndex((l) => BORDER.test(l));

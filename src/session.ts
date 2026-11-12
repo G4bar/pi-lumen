@@ -126,7 +126,6 @@ export class LumenSession {
 			provider: model?.provider,
 			modelName: model?.name || model?.id,
 			thinkingLevel: this.pi.getThinkingLevel(),
-			thinkingMs: this.thinking.elapsed(),
 			context: usage ? { tokens: usage.tokens, window: usage.contextWindow, percent: usage.percent } : undefined,
 			spend,
 			cache: cacheView(this.stats),

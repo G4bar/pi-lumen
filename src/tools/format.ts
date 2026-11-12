@@ -3,7 +3,7 @@
  * Inspired by heyhuynhgiabuu/pi-pretty v0.10.0 (MIT): renderers only, no execution changes.
  */
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { type Component, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { formatToolDuration } from "../time.ts";
 import { formatAt } from "./at.ts";
 
@@ -30,26 +30,40 @@ const INDENT = 2;
  */
 export class Block implements Component {
 	constructor(
-		private content = "",
+		private content: Content = "",
 		private wrap = false,
 	) {}
-	set(content: string, wrap: boolean): void {
+	set(content: Content, wrap: boolean): void {
 		this.content = content;
 		this.wrap = wrap;
 	}
 	invalidate(): void {}
 	render(width: number): string[] {
-		if (!this.content.trim()) return [];
 		const w = Math.max(1, width);
-		return this.content.split("\n").flatMap((row) => {
+		const text = (typeof this.content === "function" ? this.content(w) : this.content).replace(/\t/g, "   ");
+		if (!text.trim()) return [];
+		return text.split("\n").flatMap((row) => {
 			if (row.includes(RULE)) return [row.replace(RULE, "─".repeat(Math.max(1, w - INDENT)))];
-			return this.wrap ? wrapTextWithAnsi(row, w) : [truncateToWidth(row, w, "…")];
+			if (!this.wrap) return [truncateToWidth(row, w, "…")];
+			// Wrapped continuations are indented so they stay under the row they belong to.
+			const [first = "", ...rest] = wrapTextWithAnsi(row, Math.max(1, w - INDENT));
+			return [first, ...rest.map((r) => `${" ".repeat(INDENT)}${r}`)];
 		});
 	}
 }
 
+/** Rows, or a function of the render width for rows that need it (hanging prefixes on wrapped lines). */
+export type Content = string | ((width: number) => string);
+
+/** One logical line as `prefix + text`; wrapped pieces repeat the prefix so they stay inside the gutter. */
+export function prefixed(prefix: string, text: string, width: number, wrap: boolean): string[] {
+	const room = Math.max(1, width - visibleWidth(prefix));
+	if (!wrap) return [`${prefix}${truncateToWidth(text, room, "…")}`];
+	return (text === "" ? [""] : wrapTextWithAnsi(text, room)).map((piece) => `${prefix}${piece}`);
+}
+
 /** Reuse the previous Block instance when possible. */
-export function textOf(ctx: { lastComponent: unknown }, content: string, wrap = false): Block {
+export function textOf(ctx: { lastComponent: unknown }, content: Content, wrap = false): Block {
 	const t = ctx.lastComponent instanceof Block ? ctx.lastComponent : new Block();
 	t.set(content, wrap);
 	return t;

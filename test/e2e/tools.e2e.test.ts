@@ -165,7 +165,7 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 		expect(s.screen()).toMatch(/exit 3 · 2 lines · [^\n]+\n\s+─{10,}\n\s+out\n\s+boom\n\s+─{10,}/);
 	});
 
-	it("fast run: no repeated clock time on the row (the stamps already show it)", async () => {
+	it("default: no clock time on the row (the stamps already show it)", async () => {
 		const s = await run(h, call("bash", { command: "seq 1 3" }));
 		const row = s.screen().split("\n").find((l) => l.includes("└ exit 0")) ?? "";
 		expect(row).toMatch(new RegExp(`└ exit 0 · 3 lines · ${DUR} · ctrl\\+o to expand$`));
@@ -174,7 +174,7 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 
 	it("shows the wall-clock start time after the duration once it is far enough from the last one (tools.timeGapSec)", async () => {
 		const re = new RegExp(`└ exit 0 · 3 lines · ${DUR} · \\d\\d:\\d\\d:\\d\\d`);
-		const s = await h.start({ responder: responder(call("bash", { command: "seq 1 3" })), settings: { lumen: { quota: { enabled: false }, tools: { timeGapSec: 0 } } } });
+		const s = await h.start({ responder: responder(call("bash", { command: "seq 1 3" })), settings: { lumen: { quota: { enabled: false }, tools: { time: true, timeGapSec: 0 } } } });
 		s.send("go");
 		await s.waitFor("fine", 20_000);
 		await s.settle();
@@ -192,7 +192,7 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 	});
 
 	it("the time is stored in the tool result details (survives resume), not as extra entries", async () => {
-		const s = await h.start({ responder: responder(call("bash", { command: "echo hi" })), persist: true, settings: { lumen: { quota: { enabled: false }, tools: { timeGapSec: 0 } } } });
+		const s = await h.start({ responder: responder(call("bash", { command: "echo hi" })), persist: true, settings: { lumen: { quota: { enabled: false }, tools: { time: true, timeGapSec: 0 } } } });
 		s.send("go");
 		await s.waitFor("fine", 20_000);
 		await s.settle();
