@@ -25,7 +25,7 @@ const data = (over: Partial<RenderData> = {}): RenderData => ({
 	cwd: "/home/x/lumen",
 	branch: "main",
 	git: { staged: 1, unstaged: 2, untracked: 0 },
-	extStatuses: ["LSP ready"],
+	extStatuses: ["LSP ready"], // the layout still draws whatever it is given; session filters by inlineStatusKeys
 	...over,
 });
 

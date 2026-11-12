@@ -116,6 +116,16 @@ export default function lumen(pi: ExtensionAPI): void {
 		session?.bump();
 	});
 
+	pi.registerCommand("status", {
+		description: "pi-lumen: status of extensions (sync, LSP, …) and what is loaded",
+		handler: async (_args, ctx) => {
+			const s = session;
+			if (!s) return;
+			s.touch(ctx);
+			ctx.ui.notify(s.statusReport(), "info");
+		},
+	});
+
 	pi.registerCommand("lumen", {
 		description: "pi-lumen: /lumen [placement above|below|toggle | on | off]",
 		handler: async (args, ctx) => {

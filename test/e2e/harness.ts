@@ -45,6 +45,10 @@ export interface Options {
 	/** Extra settings.json content (merged over the defaults). */
 	settings?: Record<string, unknown>;
 	tuiMode?: "fullscreen" | "regular";
+	/** Persist the session under `<project>/.sessions` (default: `--no-session`). */
+	persist?: boolean;
+	/** Extra extension files loaded besides pi-lumen. */
+	extensions?: string[];
 }
 
 // Private tmux server: no user config, extended keys on (pi warns otherwise).
@@ -102,7 +106,7 @@ export async function startPi(opts: Options): Promise<Session> {
 		"COLORTERM=truecolor",
 		"TZ=UTC",
 	];
-	const args = ["--no-extensions", "-e", EXT, "--no-context-files", "--no-skills", "--no-session", "--no-mcp", "--tui-mode", opts.tuiMode ?? "fullscreen"];
+	const args = ["--no-extensions", "-e", EXT, ...(opts.extensions ?? []).flatMap((e) => ["-e", e]), "--no-context-files", "--no-skills", ...(opts.persist ? ["--session-dir", join(cwd, ".sessions")] : ["--no-session"]), "--no-mcp", "--tui-mode", opts.tuiMode ?? "fullscreen"];
 	const cmd = `env ${env.join(" ")} ${PI_BIN} ${args.join(" ")}`;
 	tmux("new-session", "-d", "-s", name, "-x", String(opts.cols ?? 120), "-y", String(opts.rows ?? 50), "-c", cwd, cmd);
 

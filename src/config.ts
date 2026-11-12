@@ -12,9 +12,10 @@ export interface LumenConfig {
 	git: { statusTtlMs: number };
 	quota: { enabled: boolean; ttlMs: number };
 	stamp: { enabled: boolean; duration: boolean };
-	tools: { enabled: boolean; previewLines: number };
+	tools: { enabled: boolean; previewLines: number; time: boolean };
 	prompt: { icon: boolean };
-	hiddenStatusKeys: string[];
+	/** Status keys of other extensions still drawn in the status line; everything else is only in /status. */
+	inlineStatusKeys: string[];
 }
 
 export const DEFAULTS: LumenConfig = {
@@ -26,9 +27,9 @@ export const DEFAULTS: LumenConfig = {
 	git: { statusTtlMs: 2000 },
 	quota: { enabled: true, ttlMs: 90_000 },
 	stamp: { enabled: true, duration: false },
-	tools: { enabled: true, previewLines: 40 },
+	tools: { enabled: true, previewLines: 40, time: true },
 	prompt: { icon: true },
-	hiddenStatusKeys: [],
+	inlineStatusKeys: [],
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

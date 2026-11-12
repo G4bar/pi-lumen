@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
+import { registerToolTimes } from "./at.ts";
 import { registerBash } from "./bash.ts";
 import { registerEditWrite } from "./edit-write.ts";
 import { registerRead } from "./read.ts";
@@ -13,4 +14,5 @@ export function registerTools(pi: ExtensionAPI, getCfg: () => LumenConfig): void
 	registerRead(pi, getCfg);
 	registerBash(pi, getCfg);
 	registerEditWrite(pi, getCfg);
+	registerToolTimes(pi, getCfg);
 }

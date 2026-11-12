@@ -1,5 +1,6 @@
 import { createEditToolDefinition, createWriteToolDefinition, type EditToolDetails, type ExtensionAPI, renderDiff } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
+import { rowAt } from "./at.ts";
 import { callLine, plural, resultLine, textOf } from "./format.ts";
 
 /** Count added/removed lines in pi's display diff (`+N text` / `-N text`). */
@@ -31,9 +32,10 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 		},
 		renderResult(result, { expanded, isPartial }, theme, ctx) {
 			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", "editing…")));
-			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", firstLine(result.content)), ctx.durationMs));
+			const at = rowAt(getCfg, result.details);
+			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", firstLine(result.content)), ctx.durationMs, at));
 			const details = result.details as EditToolDetails | undefined;
-			if (!details?.diff) return textOf(ctx, resultLine(theme, theme.fg("success", "applied"), ctx.durationMs));
+			if (!details?.diff) return textOf(ctx, resultLine(theme, theme.fg("success", "applied"), ctx.durationMs, at));
 			const { added, removed } = diffStats(details.diff);
 			const summary = `${theme.fg("success", `+${added}`)} ${theme.fg("error", `-${removed}`)}`;
 			let body = "";
@@ -45,7 +47,7 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 			} else {
 				body = `\n    ${theme.fg("muted", `(${ctx.keyHint("app.tools.expand", "to expand")})`)}`;
 			}
-			return textOf(ctx, resultLine(theme, summary, ctx.durationMs) + body);
+			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + body);
 		},
 	});
 
@@ -59,10 +61,11 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 		},
 		renderResult(result, { isPartial }, theme, ctx) {
 			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", "writing…")));
-			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", firstLine(result.content)), ctx.durationMs));
+			const at = rowAt(getCfg, result.details);
+			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", firstLine(result.content)), ctx.durationMs, at));
 			const content = typeof ctx.args?.content === "string" ? ctx.args.content : "";
 			const n = content ? content.replace(/\n$/, "").split("\n").length : 0;
-			return textOf(ctx, resultLine(theme, theme.fg("success", `wrote ${plural(n, "line")}`), ctx.durationMs));
+			return textOf(ctx, resultLine(theme, theme.fg("success", `wrote ${plural(n, "line")}`), ctx.durationMs, at));
 		},
 	});
 }

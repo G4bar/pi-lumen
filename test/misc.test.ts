@@ -10,11 +10,11 @@ describe("config", () => {
 		expect(resolveConfig(undefined, undefined)).toEqual(DEFAULTS);
 	});
 	it("merges partial settings, then state overrides, ignoring wrong types", () => {
-		const c = resolveConfig({ placement: "above", quota: { enabled: false }, tools: { previewLines: "x" }, hiddenStatusKeys: ["a", 1] }, { placement: "below" });
+		const c = resolveConfig({ placement: "above", quota: { enabled: false }, tools: { previewLines: "x" }, inlineStatusKeys: ["a", 1] }, { placement: "below" });
 		expect(c.placement).toBe("below");
 		expect(c.quota).toEqual({ enabled: false, ttlMs: 90_000 });
 		expect(c.tools.previewLines).toBe(40);
-		expect(c.hiddenStatusKeys).toEqual(["a"]);
+		expect(c.inlineStatusKeys).toEqual(["a"]);
 	});
 	it("rejects bad enums and clamps ttl", () => {
 		const c = resolveConfig({ placement: "left", icons: "x", quota: { ttlMs: 1 }, git: { statusTtlMs: 1 } }, null);

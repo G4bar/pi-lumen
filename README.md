@@ -18,7 +18,9 @@ No configuration is required. Try it once with `pi -e ./src/index.ts`.
 ## Status line
 
 One line, `above` or `below` the editor. The native footer is replaced by an empty component that only
-captures the git branch and the statuses other extensions set (e.g. pi-lens), shown as the last segment.
+captures the git branch and the statuses other extensions publish (pi-sync, pi-lens LSP, …). Those statuses
+are **not** drawn in the line by default (it stays clean): read them with `/status`, or opt individual keys
+back in with `inlineStatusKeys`.
 
 | Segment | Content |
 |---|---|
@@ -29,7 +31,7 @@ captures the git branch and the statuses other extensions set (e.g. pi-lens), sh
 | cache · tps | `CH 81%` (hit rate of the latest request on the active branch; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
 | dir | basename of the working directory |
 | git | branch, then `*unstaged +staged ?untracked` |
-| ext | statuses from other extensions |
+| ext | statuses of other extensions, only for the keys listed in `inlineStatusKeys` (none by default) |
 
 If the line does not fit, segments are dropped in this order: ext → git counters → dir → cache/tps →
 spend → git branch. model, think and context always stay; the model name is truncated last.
@@ -40,6 +42,10 @@ match the `tok/s` of pi-stamp, which starts at message creation and therefore in
 
 ### Commands
 
+- `/status` – every status published by other extensions (`pi-sync`, `pi-lens · LSP`, unknown keys as-is),
+  plus the loaded extensions with their command/tool counts. A snapshot shown as a notification; it needs the
+  pi-lumen footer (with `/lumen off` pi's own footer shows the statuses). Richer details stay in each
+  extension's own command (`/lens`, `/sync`).
 - `/lumen` – show state
 - `/lumen placement above|below|toggle`
 - `/lumen on` / `/lumen off`
@@ -55,10 +61,16 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
 
 ```text
 ● Bash (npm test)
-  └ exit 0 · 12 lines · 3.1s
+  └ exit 0 · 12 lines · 3.1s · 14:32:07
 ● Edit (src/a.ts)
-  └ +3 -1 · 0.02s
+  └ +3 -1 · 0.02s · 14:32:11
 ```
+
+The last field is the wall-clock **start** time of the call (date added when it is not today). It is written into
+the tool result's `details` (`lumenAt`) by a `tool_result` handler, so pi persists it with the result: no extra
+session entries, nothing sent to the model, and it is still there after a resume. Results recorded before this
+show no time. Only `read`/`bash`/`edit`/`write` rows have it; `find`/`grep`/`ls` and other extensions' tools keep
+their own rendering. `tools.time: false` turns it off.
 
 Expand with pi's own key (shown in the hint). `read` expands to a syntax-highlighted body with a line-number
 gutter (pi's own highlighter, no extra dependency; skipped above 80k characters); images are drawn by pi under
@@ -74,7 +86,7 @@ turns itself off). The status line shows the run total (`think:high 12s`).
 ## Timestamps
 
 A dim right-aligned `HH:mm:ss` under each user message and each run's final assistant message (not the
-intermediate tool-use ones); the date appears when the day changes. **They are stored as custom entries in
+intermediate tool-use ones; tool calls carry their own time on the result row, see Compact tools); the date appears when the day changes. **They are stored as custom entries in
 the session file** (≈ 2 per exchange); they are never sent to the model. No backfill of older messages.
 Set `stamp.enabled: false` to stop writing them; `stamp.duration: true` adds the run duration.
 
@@ -91,9 +103,9 @@ Optional, key `lumen` in `settings.json`:
     "git": { "statusTtlMs": 2000 },
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
-    "tools": { "enabled": true, "previewLines": 40 },
+    "tools": { "enabled": true, "previewLines": 40, "time": true },
     "prompt": { "icon": true },
-    "hiddenStatusKeys": []
+    "inlineStatusKeys": []
   }
 }
 ```
@@ -102,6 +114,7 @@ Optional, key `lumen` in `settings.json`:
 decision about the project is known); every other key also honours the project `.pi/settings.json` as merged by pi.
 `icons: "nerd"` adds Nerd Font glyphs. `prompt.icon` draws `❯` in the editor; it is skipped if another
 extension already owns the editor. Tools are registered at load: changing `tools.enabled` needs a restart.
+`inlineStatusKeys` is a list of status keys (as shown by `/status`, e.g. `["sync"]`) to keep in the status line.
 Keys such as `powerline` (pi-powerline-footer) or `tokenSpeed` (pi-token-speed) are ignored and can be removed.
 
 ## Inspiration and credits

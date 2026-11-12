@@ -138,6 +138,48 @@ describe("LumenSession", () => {
 		expect(Object.keys(calls).filter((k) => calls[k]?.length)).toEqual([]);
 	});
 
+	it("keeps extension statuses out of the line unless allowlisted; /status shows all", () => {
+		const mk = (inlineStatusKeys: string[]) => {
+			const { ctx, pi, calls } = fake();
+			(pi as any).getCommands = () => [{ name: "sync", source: "extension", sourceInfo: { source: "npm:pi-sync", path: "/y", origin: "package" } }];
+			(pi as any).getAllTools = () => [];
+			const s = new LumenSession(pi as any, ctx as any);
+			s.cfg.inlineStatusKeys = inlineStatusKeys;
+			s.installUi();
+			const factory = calls.setFooter?.[0]?.[0] as (tui: unknown, theme: unknown, fd: unknown) => unknown;
+			factory({ requestRender() {} }, theme, {
+				onBranchChange: () => () => {},
+				getGitBranch: () => null,
+				getExtensionStatuses: () => new Map([["sync", "synced 2m ago"], ["pi-lens-lsp", "ts · py"]]),
+			});
+			return s;
+		};
+		const clean = mk([]);
+		expect(clean.renderLine(200)).not.toContain("synced");
+		expect(clean.renderLine(200)).not.toContain("ts · py");
+		const report = clean.statusReport();
+		expect(report).toContain("pi-sync        synced 2m ago");
+		expect(report).toContain("pi-lens · LSP  ts · py");
+		expect(report).toContain("npm:pi-sync");
+		clean.dispose();
+		const inline = mk(["sync"]);
+		expect(inline.renderLine(200)).toContain("synced 2m ago");
+		expect(inline.renderLine(200)).not.toContain("ts · py");
+		inline.dispose();
+	});
+
+	it("/status explains when statuses are unavailable and never throws", () => {
+		const { ctx, pi } = fake();
+		(pi as any).getCommands = () => {
+			throw new Error("boom");
+		};
+		const s = new LumenSession(pi as any, ctx as any);
+		expect(s.statusReport()).toContain("pi's own footer");
+		(ctx as any).mode = "print";
+		expect(s.statusReport()).toContain("outside the TUI");
+		s.dispose();
+	});
+
 	it("never throws when the context is broken", () => {
 		const { ctx, pi } = fake();
 		(ctx as any).getContextUsage = () => {

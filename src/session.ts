@@ -5,6 +5,7 @@ import { type LumenConfig, loadState, resolveConfig, type StateOverrides, saveSt
 import { GitStatusCache } from "./git.ts";
 import { installPromptEditor, canUsePromptEditor } from "./prompt-editor.ts";
 import { QuotaClient } from "./quota.ts";
+import { formatStatusReport, groupLoaded, type LoadedExtension } from "./status.ts";
 import { RowThinking } from "./thinking-label.ts";
 import { cacheView, computeStats, emptyStats, type LedgerStats, ThinkingTimer, TpsTracker } from "./stats.ts";
 import { spinnerFrames, thinkingPaint } from "./statusline/colors.ts";
@@ -117,8 +118,8 @@ export class LumenSession {
 		}
 		const usage = ctx.getContextUsage();
 		const branch = this.footerData?.getGitBranch() ?? null;
-		const hidden = new Set(this.cfg.hiddenStatusKeys);
-		const ext = [...(this.footerData?.getExtensionStatuses() ?? [])].filter(([k]) => !hidden.has(k)).map(([, v]) => v);
+		const inline = new Set(this.cfg.inlineStatusKeys);
+		const ext = [...(this.footerData?.getExtensionStatuses() ?? [])].filter(([k]) => inline.has(k)).map(([, v]) => v);
 		return {
 			theme: ctx.ui.theme,
 			icons: this.cfg.icons,
@@ -251,6 +252,28 @@ export class LumenSession {
 	private persist(): void {
 		const state: StateOverrides = { enabled: this.cfg.enabled, placement: this.cfg.placement };
 		saveState(statePath(getAgentDir()), state);
+	}
+
+	/** Full `/status` text: every extension status (not only the inline ones) plus the loaded extensions. */
+	statusReport(): string {
+		let statuses: ReadonlyMap<string, string> | undefined;
+		let unavailable: string | undefined;
+		try {
+			statuses = this.footerData?.getExtensionStatuses();
+		} catch {
+			statuses = undefined;
+		}
+		if (!statuses) unavailable = this.ctx.mode !== "tui" ? "not available outside the TUI" : "pi-lumen is off: statuses are shown by pi's own footer";
+		let loaded: LoadedExtension[] = [];
+		try {
+			loaded = groupLoaded(
+				this.pi.getCommands().map((c) => ({ source: c.source, info: c.sourceInfo })),
+				this.pi.getAllTools().map((t) => ({ info: t.sourceInfo })),
+			);
+		} catch {
+			loaded = [];
+		}
+		return formatStatusReport({ statuses, unavailable, loaded, header: this.describe() });
 	}
 
 	describe(): string {

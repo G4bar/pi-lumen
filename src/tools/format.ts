@@ -5,6 +5,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { formatToolDuration } from "../time.ts";
+import { formatAt } from "./at.ts";
 
 export interface RowContext {
 	isPartial: boolean;
@@ -40,10 +41,11 @@ export function callLine(theme: Theme, ctx: Pick<RowContext, "isPartial" | "isEr
 	return out;
 }
 
-/** `  └ summary · 0.02s`; `summary` is already styled. */
-export function resultLine(theme: Theme, summary: string, durationMs?: number): string {
+/** `  └ summary · 0.02s · 14:32:07`; `summary` is already styled, `at` is the start time (ms). */
+export function resultLine(theme: Theme, summary: string, durationMs?: number, at?: number): string {
 	const dur = durationMs === undefined ? "" : theme.fg("dim", ` · ${formatToolDuration(durationMs)}`);
-	return `${theme.fg("dim", "  └")} ${summary}${dur}`;
+	const when = at === undefined ? "" : theme.fg("dim", ` · ${formatAt(at)}`);
+	return `${theme.fg("dim", "  └")} ${summary}${dur}${when}`;
 }
 
 /** Dim, indented preview of the first `max` lines with a native expand hint when something is hidden. */

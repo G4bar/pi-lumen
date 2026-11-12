@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ansiLine, DUR, hasPi, hasTmux, numbered, png, sgrCount, useSession } from "./harness.ts";
@@ -112,6 +112,36 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 		expect(s.screen()).toMatch(/exit 3 · 2 lines · [^\n]+\n\s+out\n\s+boom/);
 	});
 
+	it("shows the wall-clock start time after the duration", async () => {
+		const re = new RegExp(`└ exit 0 · 3 lines · ${DUR} · \\d\\d:\\d\\d:\\d\\d`);
+		const s = await run(h, call("bash", { command: "seq 1 3" }));
+		expect(s.screen()).toMatch(re);
+	});
+
+	it("tools.time=false hides it", async () => {
+		const off = await h.start({ responder: responder(call("bash", { command: "seq 1 3" })), settings: { lumen: { quota: { enabled: false }, tools: { time: false } } } });
+		off.send("go");
+		await off.waitFor("fine", 20_000);
+		await off.settle();
+		expect(off.screen()).toMatch(new RegExp(`└ exit 0 · 3 lines · ${DUR}$`, "m"));
+		const row = off.screen().split("\n").find((l) => l.includes("└ exit 0")) ?? "";
+		expect(row).not.toMatch(/\d\d:\d\d:\d\d/);
+	});
+
+	it("the time is stored in the tool result details (survives resume), not as extra entries", async () => {
+		const s = await h.start({ responder: responder(call("bash", { command: "echo hi" })), persist: true });
+		s.send("go");
+		await s.waitFor("fine", 20_000);
+		await s.settle();
+		const dir = join(s.cwd, ".sessions");
+		const file = readdirSync(dir, { recursive: true, encoding: "utf8" }).find((f) => f.endsWith(".jsonl"));
+		const lines = readFileSync(join(dir, file ?? ""), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+		const result = lines.find((e) => e.message?.role === "toolResult");
+		expect(typeof result?.message.details?.lumenAt).toBe("number");
+		expect(Math.abs(result.message.details.lumenAt - Date.now())).toBeLessThan(60_000);
+		expect(JSON.stringify(result.message.content)).not.toContain("lumenAt");
+	});
+
 	it("no output: says so instead of counting the placeholder as a line", async () => {
 		const s = await run(h, call("bash", { command: "true" }));
 		expect(s.screen()).toMatch(/└ exit 0 · no output · /);
@@ -160,7 +190,7 @@ describe.skipIf(!hasTmux || !hasPi)("edit", () => {
 
 	it("single edit: +N -N summary, expand hint, file changed on disk", async () => {
 		const s = await run(h, edit([{ oldText: "const a = 1;", newText: "const a = 10;" }]));
-		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR}\\n\\s+\\(ctrl\\+o to expand\\)`));
+		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR} · \\d\\d:\\d\\d:\\d\\d\\n\\s+\\(ctrl\\+o to expand\\)`));
 		expect(readFileSync(join(s.cwd, "code.ts"), "utf8")).toBe("const a = 10;\nconst b = 2;\n");
 	});
 
