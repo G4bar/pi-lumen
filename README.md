@@ -75,8 +75,11 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
   └ exit 0 · 2 lines · 0.4s
 ```
 
-- **Changes are always visible.** `edit` shows pi's coloured diff and `write` the written content as `+` lines,
-  right under the result row, up to `tools.changeLines` (12) rows; `ctrl+o` shows up to `tools.previewLines` (40).
+- **Changes are always visible.** `edit` shows the diff and `write` the written content, syntax-highlighted
+  (Shiki, like `read`) with a right-aligned line-number gutter: `N │` context, `N -` removed (red), `N +` added (green),
+  `⋯` for skipped context. Removed/added `edit` rows get a background (the theme's diff colors mixed into the tool box
+  background, to the edge of the terminal) and the words that changed a stronger one; truecolor and a theme with
+  `toolSuccessBg` only, otherwise the foreground-only look. Right under the result row, up to `tools.changeLines` (12) rows; `ctrl+o` shows up to `tools.previewLines` (40).
   The expand hint only appears when something is hidden.
 - **Hint on the result row** (`ctrl+o to expand`, from pi's own keybinding), so a collapsed tool is two lines.
   `read` and `bash` collapse to their summary; expanding draws the body between two full-width dim rules.
@@ -100,8 +103,8 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
   ────────────────────────────────────────────
 ```
 
-- `read`: line-number gutter and syntax highlighting. [Shiki](https://shiki.style) (`github-dark` by default, any
-  bundled theme via `tools.theme`) is loaded lazily, one grammar at a time, the first time a file is expanded; until it
+- `read`, `edit`, `write`: line-number gutter and syntax highlighting. [Shiki](https://shiki.style) (`tools.theme`: `auto` picks `github-light` on a pi theme with a light tool background, else `github-dark`; or any
+  bundled Shiki theme by name) is loaded lazily, one grammar at a time, the first time a file is expanded; until it
   is ready (and for files above 120k characters, or if Shiki is missing) pi's own highlighter paints. `tools.shiki: false`
   keeps pi's highlighter only. Images are drawn by pi under a one-line `image` row.
 
@@ -134,7 +137,7 @@ Optional, key `lumen` in `settings.json`:
     "git": { "statusTtlMs": 2000 },
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
-    "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": false, "timeGapSec": 5, "shiki": true, "theme": "github-dark" },
+    "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": false, "timeGapSec": 5, "shiki": true, "theme": "auto" },
     "inlineStatusKeys": []
   }
 }

@@ -26,7 +26,7 @@ export const DEFAULTS: LumenConfig = {
 	git: { statusTtlMs: 2000 },
 	quota: { enabled: true, ttlMs: 90_000 },
 	stamp: { enabled: true, duration: false },
-	tools: { enabled: true, previewLines: 40, changeLines: 12, time: false, timeGapSec: 5, shiki: true, theme: "github-dark" },
+	tools: { enabled: true, previewLines: 40, changeLines: 12, time: false, timeGapSec: 5, shiki: true, theme: "auto" },
 	inlineStatusKeys: [],
 };
 

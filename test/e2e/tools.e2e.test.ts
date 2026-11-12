@@ -254,7 +254,7 @@ describe.skipIf(!hasTmux || !hasPi)("edit", () => {
 
 	it("single edit: +N -N summary, expand hint, file changed on disk", async () => {
 		const s = await run(h, edit([{ oldText: "const a = 1;", newText: "const a = 10;" }]));
-		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR}\\n\\s+─{10,}\\n\\s+-1 const a = 1;\\n\\s+\\+1 const a = 10;`));
+		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR}\\n\\s+─{10,}\\n\\s+1 - const a = 1;\\n\\s+1 \\+ const a = 10;`));
 		expect(s.screen()).not.toContain("ctrl+o to expand"); // the whole change is already visible
 		expect(readFileSync(join(s.cwd, "code.ts"), "utf8")).toBe("const a = 10;\nconst b = 2;\n");
 	});
@@ -262,8 +262,8 @@ describe.skipIf(!hasTmux || !hasPi)("edit", () => {
 	it("expanded: the diff with removed/added lines", async () => {
 		const s = await run(h, edit([{ oldText: "const a = 1;", newText: "const a = 10;" }]));
 		s.press("C-o");
-		await s.waitFor("+1 const a = 10;");
-		expect(s.screen()).toMatch(/-1 const a = 1;\n\s+\+1 const a = 10;/);
+		await s.waitFor("1 + const a = 10;");
+		expect(s.screen()).toMatch(/1 - const a = 1;\n\s+1 \+ const a = 10;/);
 	});
 
 	it("several edits: count in the header and summed +/- totals", async () => {

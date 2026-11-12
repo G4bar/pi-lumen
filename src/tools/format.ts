@@ -23,6 +23,12 @@ const MAX_ARG = 110;
 const RULE = "\u0001";
 const INDENT = 2;
 
+/** `FILL_OPEN + <bg SGR> + FILL_CLOSE` at the end of a row: Block pads the row to the full width with that background. */
+const FILL_OPEN = "\u0002";
+const FILL_CLOSE = "\u0003";
+const FILL_RE = /\u0002([^\u0003]*)\u0003/;
+export const fillRow = (row: string, bgOpen: string): string => `${row}${FILL_OPEN}${bgOpen}${FILL_CLOSE}`;
+
 /**
  * Row block that fits whatever width pi renders it at: every row is cut to the width with `…` (rows never wrap into
  * unindented fragments in a narrow terminal), except when `wrap` is set (an expanded call header, where the full
@@ -44,6 +50,11 @@ export class Block implements Component {
 		if (!text.trim()) return [];
 		return text.split("\n").flatMap((row) => {
 			if (row.includes(RULE)) return [row.replace(RULE, "─".repeat(Math.max(1, w - INDENT)))];
+			const fill = FILL_RE.exec(row);
+			if (fill) {
+				const cut = truncateToWidth(row.replace(FILL_RE, ""), w, "…");
+				return [`${cut}${fill[1]}${" ".repeat(Math.max(0, w - visibleWidth(cut)))}\x1b[0m`];
+			}
 			if (!this.wrap) return [truncateToWidth(row, w, "…")];
 			// Wrapped continuations are indented so they stay under the row they belong to.
 			const [first = "", ...rest] = wrapTextWithAnsi(row, Math.max(1, w - INDENT));
@@ -109,15 +120,19 @@ export function framedLines(theme: Theme, lines: string[], max: number, paint: (
 	return rows.length ? framed(theme, rows, width) : "";
 }
 
+/** How many change rows are shown: `collapsedMax` by default, `expandedMax` (at least `collapsedMax`) once expanded. */
+export const changeMax = (expanded: boolean, collapsedMax: number, expandedMax: number): number => (expanded ? Math.max(expandedMax, collapsedMax) : collapsedMax);
+
 /**
  * Body shown by default (changes of `edit`/`write`): `collapsedMax` rows, or `expandedMax` once expanded.
  * `toggle` tells whether expanding reveals anything, so the hint only appears when it is useful.
+ * `rows` may hold only the rows that can be shown (see `changeMax`) when `total` gives the real row count.
  */
-export function changeBody(theme: Theme, rows: string[], expanded: boolean, collapsedMax: number, expandedMax: number): { body: string; toggle: boolean } {
-	const max = expanded ? Math.max(expandedMax, collapsedMax) : collapsedMax;
+export function changeBody(theme: Theme, rows: string[], expanded: boolean, collapsedMax: number, expandedMax: number, total = rows.length): { body: string; toggle: boolean } {
+	const max = changeMax(expanded, collapsedMax, expandedMax);
 	const shown = rows.slice(0, max);
-	if (rows.length > max) shown.push(theme.fg("muted", `… ${rows.length - max} more lines`));
-	return { body: shown.length ? framed(theme, shown) : "", toggle: rows.length > collapsedMax };
+	if (total > max) shown.push(theme.fg("muted", `… ${total - max} more lines`));
+	return { body: shown.length ? framed(theme, shown) : "", toggle: total > collapsedMax };
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {

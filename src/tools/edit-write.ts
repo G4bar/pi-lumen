@@ -1,7 +1,9 @@
-import { createEditToolDefinition, createWriteToolDefinition, type EditToolDetails, type ExtensionAPI, renderDiff } from "@earendil-works/pi-coding-agent";
+import { createEditToolDefinition, createWriteToolDefinition, type EditToolDetails, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
 import { rowAt } from "./at.ts";
-import { callLine, changeBody, expandHint, plural, resultLine, textOf } from "./format.ts";
+import { diffRows, writeRows } from "./changes.ts";
+import { callLine, changeBody, changeMax, expandHint, plural, resultLine, textOf } from "./format.ts";
+import { shikiPainter, shikiThemeName } from "./highlight.ts";
 
 /** Count added/removed lines in pi's display diff (`+N text` / `-N text`). */
 export function diffStats(diff: string): { added: number; removed: number } {
@@ -38,8 +40,10 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 			if (!details?.diff) return textOf(ctx, resultLine(theme, theme.fg("success", "applied"), ctx.durationMs, at));
 			const { added, removed } = diffStats(details.diff);
 			const summary = `${theme.fg("success", `+${added}`)} ${theme.fg("error", `-${removed}`)}`;
-			const { previewLines, changeLines } = getCfg().tools;
-			const { body, toggle } = changeBody(theme, renderDiff(details.diff).split("\n"), expanded, changeLines, previewLines);
+			const { previewLines, changeLines, shiki, theme: shikiTheme } = getCfg().tools;
+			const path = String((ctx.args as { path?: unknown } | undefined)?.path ?? "");
+			const { rows, total } = diffRows(theme, details.diff, path, changeMax(expanded, changeLines, previewLines), shikiPainter(ctx, path, shikiThemeName(shikiTheme, theme), shiki));
+			const { body, toggle } = changeBody(theme, rows, expanded, changeLines, previewLines, total);
 			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + (toggle ? expandHint(theme, ctx, expanded) : "") + body);
 		},
 	});
@@ -58,10 +62,10 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", firstLine(result.content)), ctx.durationMs, at));
 			const content = typeof ctx.args?.content === "string" ? ctx.args.content : "";
 			const lines = content ? content.replace(/\n$/, "").split("\n") : [];
-			const width = String(lines.length).length;
-			const rows = lines.map((l, i) => theme.fg("toolDiffAdded", `${String(i + 1).padStart(width)} + ${l}`));
-			const { previewLines, changeLines } = getCfg().tools;
-			const { body, toggle } = changeBody(theme, rows, expanded, changeLines, previewLines);
+			const { previewLines, changeLines, shiki, theme: shikiTheme } = getCfg().tools;
+			const path = String((ctx.args as { path?: unknown } | undefined)?.path ?? "");
+			const rows = writeRows(theme, lines, path, changeMax(expanded, changeLines, previewLines), shikiPainter(ctx, path, shikiThemeName(shikiTheme, theme), shiki));
+			const { body, toggle } = changeBody(theme, rows, expanded, changeLines, previewLines, lines.length);
 			return textOf(ctx, resultLine(theme, theme.fg("success", `wrote ${plural(lines.length, "line")}`), ctx.durationMs, at) + (toggle ? expandHint(theme, ctx, expanded) : "") + body);
 		},
 	});

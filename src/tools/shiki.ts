@@ -39,28 +39,33 @@ export function isLowContrast(r: number, g: number, b: number): boolean {
 	return 0.2126 * r + 0.7152 * g + 0.0722 * b < 72;
 }
 
-/** `#rrggbb` (or `#rrggbbaa`) → SGR parameters, lifting near-black foregrounds to a muted grey. */
-export function fgParams(color: string | undefined): string | undefined {
+/** `#rrggbb` (or `#rrggbbaa`) → SGR parameters; on dark themes near-black foregrounds are lifted to a muted grey. */
+export function fgParams(color: string | undefined, light = false): string | undefined {
 	const m = /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(color ?? "");
 	if (!m?.[1]) return undefined;
 	const n = Number.parseInt(m[1], 16);
 	const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const;
-	return isLowContrast(r, g, b) ? MUTED_FG : `38;2;${r};${g};${b}`;
+	return !light && isLowContrast(r, g, b) ? MUTED_FG : `38;2;${r};${g};${b}`;
 }
 
-/** One painted line per token line; only foreground/bold/italic/underline are emitted, never a background. */
-export function tokensToAnsi(lines: Token[][]): string[] {
+/**
+ * One painted line per token line; only foreground/bold/italic/underline are emitted, never a background.
+ * Each token closes only what it opened (`39`, `22`, `23`, `24`), never a full reset, so the background pi
+ * paints behind the row (and the diff tints of `edit`) stays continuous across tokens.
+ */
+export function tokensToAnsi(lines: Token[][], light = false): string[] {
 	return lines.map((tokens) =>
 		tokens
 			.map((t) => {
-				const codes: string[] = [];
-				const fg = fgParams(t.color);
-				if (fg) codes.push(fg);
+				const on: string[] = [];
+				const off: string[] = [];
+				const fg = fgParams(t.color, light);
+				if (fg) (on.push(fg), off.push("39"));
 				const fs = t.fontStyle ?? 0;
-				if (fs & 1) codes.push("3");
-				if (fs & 2) codes.push("1");
-				if (fs & 4) codes.push("4");
-				return codes.length ? `\x1b[${codes.join(";")}m${t.content}\x1b[0m` : t.content;
+				if (fs & 1) (on.push("3"), off.push("23"));
+				if (fs & 2) (on.push("1"), off.push("22"));
+				if (fs & 4) (on.push("4"), off.push("24"));
+				return on.length ? `\x1b[${on.join(";")}m${t.content}\x1b[${off.join(";")}m` : t.content;
 			})
 			.join(""),
 	);
@@ -110,7 +115,7 @@ export function warmHighlight(theme: BundledTheme, lang: BundledLanguage, code: 
 			if (!h) return void failed.add(k);
 			await h.loadTheme(theme);
 			await h.loadLanguage(lang);
-			cache.set(k, tokensToAnsi(h.codeToTokensBase(code, { lang, theme })));
+			cache.set(k, tokensToAnsi(h.codeToTokensBase(code, { lang, theme }), h.getTheme(theme).type === "light"));
 			while (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
 		} catch {
 			failed.add(k);
