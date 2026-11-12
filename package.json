@@ -14,6 +14,9 @@
     "test": "vitest --run",
     "test:e2e": "vitest --run -c vitest.e2e.config.ts"
   },
+  "dependencies": {
+    "shiki": "4.0.2"
+  },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",

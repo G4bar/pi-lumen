@@ -72,9 +72,25 @@ session entries, nothing sent to the model, and it is still there after a resume
 show no time. Only `read`/`bash`/`edit`/`write` rows have it; `find`/`grep`/`ls` and other extensions' tools keep
 their own rendering. `tools.time: false` turns it off.
 
-Expand with pi's own key (shown in the hint). `read` expands to a syntax-highlighted body with a line-number
-gutter (pi's own highlighter, no extra dependency; skipped above 80k characters); images are drawn by pi under
-a one-line `image` row. `find`/`grep`/`ls` are left alone.
+The hint (`ctrl+o to expand`, from pi's own keybinding) sits on the result row, so a collapsed tool is two lines.
+Expanding draws the body between two full-width dim rules, indented under the `└`:
+
+```text
+● Read (src/a.ts)
+  └ 70 lines · 0.01s · 14:32:07 · ctrl+o to collapse
+  ────────────────────────────────────────────
+   1 │ import { x } from "y";
+   2 │ const a = 1;
+  ────────────────────────────────────────────
+```
+
+- `read`: line-number gutter and syntax highlighting. [Shiki](https://shiki.style) (`github-dark` by default, any
+  bundled theme via `tools.theme`) is loaded lazily, one grammar at a time, the first time a file is expanded; until it
+  is ready (and for files above 120k characters, or if Shiki is missing) pi's own highlighter paints. `tools.shiki: false`
+  keeps pi's highlighter only. Images are drawn by pi under a one-line `image` row.
+- `bash`: the output; `edit`: pi's coloured diff. Both are capped at `tools.previewLines`.
+
+`find`/`grep`/`ls` are left alone.
 
 ## Thinking and working indicator
 
@@ -103,7 +119,7 @@ Optional, key `lumen` in `settings.json`:
     "git": { "statusTtlMs": 2000 },
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
-    "tools": { "enabled": true, "previewLines": 40, "time": true },
+    "tools": { "enabled": true, "previewLines": 40, "time": true, "shiki": true, "theme": "github-dark" },
     "prompt": { "icon": true },
     "inlineStatusKeys": []
   }

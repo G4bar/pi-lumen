@@ -48,15 +48,27 @@ export function resultLine(theme: Theme, summary: string, durationMs?: number, a
 	return `${theme.fg("dim", "  └")} ${summary}${dur}${when}`;
 }
 
-/** Dim, indented preview of the first `max` lines with a native expand hint when something is hidden. */
-export function previewLines(theme: Theme, lines: string[], max: number, expanded: boolean, ctx: Pick<RowContext, "keyHint">): string {
-	const shown = expanded ? lines.slice(0, max) : [];
-	let out = shown.map((l) => `\n    ${theme.fg("toolOutput", l)}`).join("");
-	const hidden = lines.length - shown.length;
-	if (hidden > 0) {
-		out += `\n    ${theme.fg("muted", expanded ? `… ${hidden} more lines` : `(${ctx.keyHint("app.tools.expand", "to expand")})`)}`;
-	}
-	return out;
+/** Width of the full-width rules (pi gives renderers no width; clamp like the rest of the UI). */
+export function ruleWidth(): number {
+	return Math.max(10, Math.min(process.stdout.columns || 100, 200) - 2);
+}
+
+/** ` · ctrl+o to expand` / `to collapse`, appended to the result row so the body needs no hint line of its own. */
+export function expandHint(theme: Theme, ctx: Pick<RowContext, "keyHint">, expanded: boolean): string {
+	return theme.fg("dim", ` · ${ctx.keyHint("app.tools.expand", expanded ? "to collapse" : "to expand")}`);
+}
+
+/** Expanded body: blank line, full-width dim rule, `rows` indented to the `└`, closing rule. `rows` are already styled. */
+export function framed(theme: Theme, rows: string[], width = ruleWidth()): string {
+	const rule = `\n  ${theme.fg("dim", "─".repeat(width))}`;
+	return `\n${rule}${rows.map((r) => `\n  ${r}`).join("")}${rule}`;
+}
+
+/** The first `max` lines as framed rows, with a `… N more lines` marker when cut. */
+export function framedLines(theme: Theme, lines: string[], max: number, paint: (line: string) => string = (l) => theme.fg("toolOutput", l), width = ruleWidth()): string {
+	const rows = lines.slice(0, max).map(paint);
+	if (lines.length > max) rows.push(theme.fg("muted", `… ${lines.length - max} more lines`));
+	return rows.length ? framed(theme, rows, width) : "";
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {

@@ -1,6 +1,6 @@
 import { type BashToolDetails, createBashToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
-import { callLine, oneLine, plural, previewLines, resultLine, textOf } from "./format.ts";
+import { callLine, expandHint, framedLines, oneLine, plural, resultLine, textOf } from "./format.ts";
 import { rowAt } from "./at.ts";
 import { builtinToolOptions } from "./options.ts";
 
@@ -41,7 +41,9 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 			const last = lines[lines.length - 1];
 			if (code !== 0 && !expanded && last) summary += theme.fg("muted", ` · ${oneLine(last, 60)}`);
 			if (details?.truncation?.truncated) summary += theme.fg("warning", " · truncated");
-			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + previewLines(theme, lines, getCfg().tools.previewLines, expanded, ctx));
+			const hint = lines.length ? expandHint(theme, ctx, expanded) : "";
+			const body = expanded ? framedLines(theme, lines, getCfg().tools.previewLines) : "";
+			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + hint + body);
 		},
 	});
 }

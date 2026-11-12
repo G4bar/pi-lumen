@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadBootSettings } from "../src/config.ts";
 import { RowThinking } from "../src/thinking-label.ts";
+import { framedLines } from "../src/tools/format.ts";
 import { outputLines } from "../src/tools/bash.ts";
 import { builtinToolOptions } from "../src/tools/options.ts";
-import { splitRead } from "../src/tools/read.ts";
+import { codeBody, splitRead } from "../src/tools/read.ts";
+import { fgParams, isLowContrast, languageFor, tokensToAnsi } from "../src/tools/shiki.ts";
 
 describe("splitRead", () => {
 	it("does not count the trailing newline", () => {
@@ -93,5 +95,37 @@ describe("builtinToolOptions", () => {
 	it("falls back to SDK defaults when settings are empty or unavailable", () => {
 		expect(builtinToolOptions({ getSettings: () => ({}) } as never)).toEqual({ bash: { commandPrefix: undefined, shellPath: undefined }, read: {} });
 		expect(builtinToolOptions({ getSettings: () => { throw new Error("loading"); } } as never)).toEqual({ bash: {}, read: {} });
+	});
+});
+
+describe("shiki helpers", () => {
+	it("turns tokens into foreground-only ANSI and lifts near-black colors", () => {
+		const [line] = tokensToAnsi([[{ content: "const", color: "#ff7b72", fontStyle: 2 }, { content: " x", color: "#0a0a0a" }, { content: ";" }]]);
+		expect(line).toBe("\x1b[38;2;255;123;114;1mconst\x1b[0m\x1b[38;2;139;148;158m x\x1b[0m;");
+		expect(isLowContrast(10, 10, 10)).toBe(true);
+		expect(fgParams("#79c0ff")).toBe("38;2;121;192;255");
+		expect(fgParams("not-a-color")).toBeUndefined();
+	});
+	it("maps paths to Shiki languages with a fallback, ignoring unknown ones", async () => {
+		expect(await languageFor("src/a.ts", undefined)).toBe("ts");
+		expect(await languageFor("Dockerfile", undefined)).toBe("dockerfile");
+		expect(await languageFor("notes.zzz", undefined)).toBeUndefined();
+		expect(await languageFor("x.unknownext", "python")).toBe("python");
+	});
+});
+
+describe("codeBody", () => {
+	const theme = { fg: (_c: string, s: string) => s, bold: (s: string) => s } as never;
+	it("frames the body with full-width rules, a right-aligned gutter and a remaining-lines marker", () => {
+		const out = codeBody(theme, ["a", "b", "c"], "x.txt", 9, 2, "[hint]", undefined, 6);
+		expect(out).toBe("\n\n  ──────\n   9 │ a\n  10 │ b\n  … 1 more lines\n  [hint]\n  ──────");
+	});
+});
+
+describe("framedLines", () => {
+	const theme = { fg: (_c: string, s: string) => s } as never;
+	it("frames, caps and marks the remainder; empty input renders nothing", () => {
+		expect(framedLines(theme, ["a", "b", "c"], 2, undefined, 4)).toBe("\n\n  ────\n  a\n  b\n  … 1 more lines\n  ────");
+		expect(framedLines(theme, [], 5)).toBe("");
 	});
 });

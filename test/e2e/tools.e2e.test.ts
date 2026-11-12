@@ -25,7 +25,7 @@ describe.skipIf(!hasTmux || !hasPi)("read", () => {
 		const screen = s.screen();
 		expect(screen).toMatch(/● Read \(a\.txt\)\n\s+└ 5 lines · /);
 		expect(screen).toMatch(new RegExp(`└ 5 lines · ${DUR}`));
-		expect(screen).toContain("(ctrl+o to expand)");
+		expect(screen).toMatch(/└ 5 lines · [^\n]*· ctrl\+o to expand/);
 		expect(screen).not.toContain("line 3");
 	});
 
@@ -35,10 +35,11 @@ describe.skipIf(!hasTmux || !hasPi)("read", () => {
 		await s.waitFor("Tool output: expanded");
 		const open = s.screen();
 		for (let i = 1; i <= 5; i++) expect(open).toMatch(new RegExp(`${i} │ line ${i}\\b`));
-		expect(open).not.toContain("(ctrl+o to expand)");
+		expect(open).not.toContain("ctrl+o to expand");
+		expect(open).toMatch(/─{20,}/);
 		s.press("C-o");
 		await s.waitGone("line 3");
-		expect(s.screen()).toContain("(ctrl+o to expand)");
+		expect(s.screen()).toContain("ctrl+o to expand");
 	});
 
 	it("offset/limit: range in the header, real first line number, continuation notice kept out of the count", async () => {
@@ -69,7 +70,7 @@ describe.skipIf(!hasTmux || !hasPi)("read", () => {
 	it("missing file: error text on the result row, red dot", async () => {
 		const s = await run(h, call("read", { path: "nope.txt" }));
 		expect(s.screen()).toMatch(/● Read \(nope\.txt\)\n\s+└ ENOENT: no such file or directory/);
-		expect(s.screen()).not.toContain("(ctrl+o to expand)");
+		expect(s.screen()).not.toContain("ctrl+o to expand");
 	});
 
 	it("image: 'image' summary instead of a line count", async () => {
@@ -91,6 +92,27 @@ describe.skipIf(!hasTmux || !hasPi)("read", () => {
 	});
 });
 
+describe.skipIf(!hasTmux || !hasPi)("read with Shiki", () => {
+	const h = useSession();
+	const ts = { "code.ts": "const a = 1;\nfunction f(x: number): string { return `v${x}`; }\n" };
+
+	it("expanded body switches to Shiki (24-bit colors) once the grammar is loaded", async () => {
+		const s = await run(h, call("read", { path: "code.ts" }), { files: ts });
+		s.press("C-o");
+		await s.waitFor("1 │");
+		for (let i = 0; i < 40 && !/38;2;/.test(ansiLine(s, "function f")); i++) await new Promise((r) => setTimeout(r, 250));
+		expect(ansiLine(s, "function f")).toMatch(/38;2;/);
+	});
+
+	it("tools.shiki=false keeps pi's highlighter (no 24-bit colors)", async () => {
+		const s = await run(h, call("read", { path: "code.ts" }), { files: ts, settings: { lumen: { quota: { enabled: false }, tools: { shiki: false } } } });
+		s.press("C-o");
+		await s.waitFor("1 │");
+		await new Promise((r) => setTimeout(r, 1500));
+		expect(ansiLine(s, "function f")).not.toMatch(/38;2;/);
+	});
+});
+
 describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 	const h = useSession();
 
@@ -98,6 +120,7 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 		const s = await run(h, call("bash", { command: "seq 1 3 | sed 's/^/out-/'" }));
 		expect(s.screen()).toMatch(new RegExp(`● Bash \\(seq 1 3 \\| sed 's/\\^/out-/'\\)\\n\\s+└ exit 0 · 3 lines · ${DUR}`));
 		expect(s.screen()).not.toContain("out-2");
+		expect(s.screen()).toMatch(/└ exit 0 · 3 lines · [^\n]*· ctrl\+o to expand/);
 		s.press("C-o");
 		await s.waitFor("out-3");
 		expect(s.screen()).toMatch(/out-1\n\s+out-2\n\s+out-3/);
@@ -109,7 +132,7 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 		expect(s.screen()).toMatch(/└ exit 3 · 2 lines · boom · /);
 		s.press("C-o");
 		await s.waitFor("out");
-		expect(s.screen()).toMatch(/exit 3 · 2 lines · [^\n]+\n\s+out\n\s+boom/);
+		expect(s.screen()).toMatch(/exit 3 · 2 lines · [^\n]+\n\s*\n\s+─{10,}\n\s+out\n\s+boom\n\s+─{10,}/);
 	});
 
 	it("shows the wall-clock start time after the duration", async () => {
@@ -123,7 +146,7 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 		off.send("go");
 		await off.waitFor("fine", 20_000);
 		await off.settle();
-		expect(off.screen()).toMatch(new RegExp(`└ exit 0 · 3 lines · ${DUR}$`, "m"));
+		expect(off.screen()).toMatch(new RegExp(`└ exit 0 · 3 lines · ${DUR} · ctrl\\+o to expand$`, "m"));
 		const row = off.screen().split("\n").find((l) => l.includes("└ exit 0")) ?? "";
 		expect(row).not.toMatch(/\d\d:\d\d:\d\d/);
 	});
@@ -190,7 +213,7 @@ describe.skipIf(!hasTmux || !hasPi)("edit", () => {
 
 	it("single edit: +N -N summary, expand hint, file changed on disk", async () => {
 		const s = await run(h, edit([{ oldText: "const a = 1;", newText: "const a = 10;" }]));
-		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR} · \\d\\d:\\d\\d:\\d\\d\\n\\s+\\(ctrl\\+o to expand\\)`));
+		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR} · \\d\\d:\\d\\d:\\d\\d · ctrl\\+o to expand`));
 		expect(readFileSync(join(s.cwd, "code.ts"), "utf8")).toBe("const a = 10;\nconst b = 2;\n");
 	});
 

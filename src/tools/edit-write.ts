@@ -1,7 +1,7 @@
 import { createEditToolDefinition, createWriteToolDefinition, type EditToolDetails, type ExtensionAPI, renderDiff } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
 import { rowAt } from "./at.ts";
-import { callLine, plural, resultLine, textOf } from "./format.ts";
+import { callLine, expandHint, framedLines, plural, resultLine, textOf } from "./format.ts";
 
 /** Count added/removed lines in pi's display diff (`+N text` / `-N text`). */
 export function diffStats(diff: string): { added: number; removed: number } {
@@ -38,16 +38,8 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 			if (!details?.diff) return textOf(ctx, resultLine(theme, theme.fg("success", "applied"), ctx.durationMs, at));
 			const { added, removed } = diffStats(details.diff);
 			const summary = `${theme.fg("success", `+${added}`)} ${theme.fg("error", `-${removed}`)}`;
-			let body = "";
-			if (expanded) {
-				const lines = renderDiff(details.diff).split("\n");
-				const max = getCfg().tools.previewLines;
-				body = lines.slice(0, max).map((l) => `\n    ${l}`).join("");
-				if (lines.length > max) body += `\n    ${theme.fg("muted", `… ${lines.length - max} more lines`)}`;
-			} else {
-				body = `\n    ${theme.fg("muted", `(${ctx.keyHint("app.tools.expand", "to expand")})`)}`;
-			}
-			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + body);
+			const body = expanded ? framedLines(theme, renderDiff(details.diff).split("\n"), getCfg().tools.previewLines, (l) => l) : "";
+			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + expandHint(theme, ctx, expanded) + body);
 		},
 	});
 
