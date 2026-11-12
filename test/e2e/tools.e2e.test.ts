@@ -113,6 +113,36 @@ describe.skipIf(!hasTmux || !hasPi)("read with Shiki", () => {
 	});
 });
 
+describe.skipIf(!hasTmux || !hasPi)("narrow terminal", () => {
+	const h = useSession();
+	const cmd = "echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa && echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+	it("collapsed rows stay on one line each and never wrap into fragments", async () => {
+		const s = await h.start({ responder: responder(call("bash", { command: cmd })), files, cols: 40 });
+		s.send("go");
+		await s.waitFor("fine", 30_000);
+		await s.settle();
+		const lines = s.screen().split("\n");
+		const head = lines.findIndex((l) => l.includes("● Bash"));
+		expect(lines[head]).toMatch(/…$/);
+		expect(lines[head + 1]).toMatch(/^\s+└ exit 0/);
+		expect(lines[head + 2]).not.toMatch(/bbbb/);
+	});
+
+	it("expanded: rules fit the width, rows are cut, nothing overflows", async () => {
+		const s = await h.start({ responder: responder(call("read", { path: "a.txt" })), files, cols: 40 });
+		s.send("go");
+		await s.waitFor("fine", 30_000);
+		await s.settle();
+		s.press("C-o");
+		await s.waitFor("1 │");
+		await s.settle();
+		const rows = s.screen().split("\n");
+		for (const r of rows) expect(r.length).toBeLessThanOrEqual(40);
+		expect(rows.filter((l) => /^ +─{5,}$/.test(l)).length).toBeGreaterThanOrEqual(2);
+	});
+});
+
 describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 	const h = useSession();
 
@@ -132,17 +162,27 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 		expect(s.screen()).toMatch(/└ exit 3 · 2 lines · boom · /);
 		s.press("C-o");
 		await s.waitFor("out");
-		expect(s.screen()).toMatch(/exit 3 · 2 lines · [^\n]+\n\s*\n\s+─{10,}\n\s+out\n\s+boom\n\s+─{10,}/);
+		expect(s.screen()).toMatch(/exit 3 · 2 lines · [^\n]+\n\s+─{10,}\n\s+out\n\s+boom\n\s+─{10,}/);
 	});
 
-	it("shows the wall-clock start time after the duration", async () => {
-		const re = new RegExp(`└ exit 0 · 3 lines · ${DUR} · \\d\\d:\\d\\d:\\d\\d`);
+	it("fast run: no repeated clock time on the row (the stamps already show it)", async () => {
 		const s = await run(h, call("bash", { command: "seq 1 3" }));
+		const row = s.screen().split("\n").find((l) => l.includes("└ exit 0")) ?? "";
+		expect(row).toMatch(new RegExp(`└ exit 0 · 3 lines · ${DUR} · ctrl\\+o to expand$`));
+		expect(row).not.toMatch(/\d\d:\d\d:\d\d/);
+	});
+
+	it("shows the wall-clock start time after the duration once it is far enough from the last one (tools.timeGapSec)", async () => {
+		const re = new RegExp(`└ exit 0 · 3 lines · ${DUR} · \\d\\d:\\d\\d:\\d\\d`);
+		const s = await h.start({ responder: responder(call("bash", { command: "seq 1 3" })), settings: { lumen: { quota: { enabled: false }, tools: { timeGapSec: 0 } } } });
+		s.send("go");
+		await s.waitFor("fine", 20_000);
+		await s.settle();
 		expect(s.screen()).toMatch(re);
 	});
 
 	it("tools.time=false hides it", async () => {
-		const off = await h.start({ responder: responder(call("bash", { command: "seq 1 3" })), settings: { lumen: { quota: { enabled: false }, tools: { time: false } } } });
+		const off = await h.start({ responder: responder(call("bash", { command: "seq 1 3" })), settings: { lumen: { quota: { enabled: false }, tools: { time: false, timeGapSec: 0 } } } });
 		off.send("go");
 		await off.waitFor("fine", 20_000);
 		await off.settle();
@@ -152,7 +192,7 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 	});
 
 	it("the time is stored in the tool result details (survives resume), not as extra entries", async () => {
-		const s = await h.start({ responder: responder(call("bash", { command: "echo hi" })), persist: true });
+		const s = await h.start({ responder: responder(call("bash", { command: "echo hi" })), persist: true, settings: { lumen: { quota: { enabled: false }, tools: { timeGapSec: 0 } } } });
 		s.send("go");
 		await s.waitFor("fine", 20_000);
 		await s.settle();
@@ -176,13 +216,14 @@ describe.skipIf(!hasTmux || !hasPi)("bash", () => {
 		expect(s.screen()).toMatch(/└ exit 0 · 2000 lines · truncated · /);
 	});
 
-	it("multi-line and very long commands are flattened to one header row", async () => {
+	it("multi-line commands keep their real lines under the header (no ⏎ flattening); long ones are cut", async () => {
 		const long = `echo ${"x".repeat(200)}`;
 		const s = await run(h, [{ toolCalls: [{ name: "bash", args: { command: "echo a\necho b" } }, { name: "bash", args: { command: long } }] }, { text: "fine" }]);
-		expect(s.screen()).toContain("● Bash (echo a ⏎ echo b)");
+		expect(s.screen()).toMatch(/● Bash\n\s+│ echo a\n\s+│ echo b\n\s+└ exit 0/);
+		expect(s.screen()).not.toContain("⏎");
 		const screen = s.screen();
-		// one logical row (pi wraps it visually at the terminal width), cut with an ellipsis well before 200 chars
-		const row = /● Bash \(echo\s+x+…\)/.exec(screen)?.[0] ?? "";
+		// one row, cut with an ellipsis at the terminal width well before 200 chars
+		const row = /● Bash \(echo\s+x+…/.exec(screen)?.[0] ?? "";
 		expect(row).not.toBe("");
 		expect(row.replace(/\s+/g, "").length).toBeLessThan(130);
 	});
@@ -213,7 +254,8 @@ describe.skipIf(!hasTmux || !hasPi)("edit", () => {
 
 	it("single edit: +N -N summary, expand hint, file changed on disk", async () => {
 		const s = await run(h, edit([{ oldText: "const a = 1;", newText: "const a = 10;" }]));
-		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR} · \\d\\d:\\d\\d:\\d\\d · ctrl\\+o to expand`));
+		expect(s.screen()).toMatch(new RegExp(`● Edit \\(code\\.ts\\)\\n\\s+└ \\+1 -1 · ${DUR}\\n\\s+─{10,}\\n\\s+-1 const a = 1;\\n\\s+\\+1 const a = 10;`));
+		expect(s.screen()).not.toContain("ctrl+o to expand"); // the whole change is already visible
 		expect(readFileSync(join(s.cwd, "code.ts"), "utf8")).toBe("const a = 10;\nconst b = 2;\n");
 	});
 
@@ -237,6 +279,21 @@ describe.skipIf(!hasTmux || !hasPi)("edit", () => {
 });
 
 describe.skipIf(!hasTmux || !hasPi)("write", () => {
+	const hw = useSession();
+	it("shows the written content as added lines, capped by tools.changeLines with an expand hint", async () => {
+		const body = Array.from({ length: 20 }, (_, i) => `row ${i + 1}`).join("\n");
+		const s = await hw.start({ responder: responder(call("write", { path: "w.txt", content: body })), files });
+		s.send("go");
+		await s.waitFor("fine", 20_000);
+		await s.settle();
+		expect(s.screen()).toMatch(/└ wrote 20 lines · [^\n]*· ctrl\+o to expand/);
+		expect(s.screen()).toMatch(/12 \+ row 12/);
+		expect(s.screen()).toContain("… 8 more lines");
+		expect(s.screen()).not.toContain("row 13");
+		s.press("C-o");
+		await s.waitFor("20 + row 20");
+	});
+
 	const h = useSession();
 
 	it("new file in a new directory: line count, file on disk", async () => {

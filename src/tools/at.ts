@@ -32,8 +32,21 @@ export function rowAt(getCfg: () => LumenConfig, details: unknown): number | und
 	return getCfg().tools.time ? atOf(details) : undefined;
 }
 
+/**
+ * Whether a tool started at `at` deserves its own clock time: only when it is at least `gapMs` away from the last
+ * visible time (the run start, which carries the user stamp, or the previous visible tool). Fast runs therefore show
+ * no repeated `18:56:28`; long ones keep a timeline.
+ */
+export function showsTime(at: number, marker: number | undefined, gapMs: number): boolean {
+	return marker === undefined || Math.abs(at - marker) >= gapMs;
+}
+
 export function registerToolTimes(pi: ExtensionAPI, getCfg: () => LumenConfig): void {
 	const started = new Map<string, number>();
+	let marker: number | undefined;
+	pi.on("agent_start", () => {
+		marker = Date.now();
+	});
 	pi.on("tool_execution_start", (e) => {
 		if (!TIMED_TOOLS.has(e.toolName)) return;
 		if (started.size >= MAX_PENDING) started.delete(started.keys().next().value as string);
@@ -45,6 +58,8 @@ export function registerToolTimes(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 		if (!getCfg().tools.time || !TIMED_TOOLS.has(e.toolName)) return undefined;
 		const details: unknown = e.details;
 		if (details !== undefined && !isPlain(details)) return undefined; // never reshape unknown details
+		if (!showsTime(at, marker, getCfg().tools.timeGapSec * 1000)) return undefined;
+		marker = at;
 		return { details: { ...details, [AT_KEY]: at } };
 	});
 }

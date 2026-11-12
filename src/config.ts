@@ -7,13 +7,12 @@ export interface LumenConfig {
 	enabled: boolean;
 	placement: Placement;
 	separator: string;
-	icons: "none" | "nerd";
+	icons: "none" | "nerd" | "auto";
 	cache: "session";
 	git: { statusTtlMs: number };
 	quota: { enabled: boolean; ttlMs: number };
 	stamp: { enabled: boolean; duration: boolean };
-	tools: { enabled: boolean; previewLines: number; time: boolean; shiki: boolean; theme: string };
-	prompt: { icon: boolean };
+	tools: { enabled: boolean; previewLines: number; changeLines: number; time: boolean; timeGapSec: number; shiki: boolean; theme: string };
 	/** Status keys of other extensions still drawn in the status line; everything else is only in /status. */
 	inlineStatusKeys: string[];
 }
@@ -22,13 +21,12 @@ export const DEFAULTS: LumenConfig = {
 	enabled: true,
 	placement: "below",
 	separator: "│",
-	icons: "none",
+	icons: "auto",
 	cache: "session",
 	git: { statusTtlMs: 2000 },
 	quota: { enabled: true, ttlMs: 90_000 },
 	stamp: { enabled: true, duration: false },
-	tools: { enabled: true, previewLines: 40, time: true, shiki: true, theme: "github-dark" },
-	prompt: { icon: true },
+	tools: { enabled: true, previewLines: 40, changeLines: 12, time: true, timeGapSec: 5, shiki: true, theme: "github-dark" },
 	inlineStatusKeys: [],
 };
 
@@ -51,8 +49,10 @@ function merge<T>(base: T, over: unknown): T {
 export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): LumenConfig {
 	const cfg = merge(merge(DEFAULTS, settingsLumen), stateOverrides);
 	if (cfg.placement !== "above" && cfg.placement !== "below") cfg.placement = DEFAULTS.placement;
-	if (cfg.icons !== "none" && cfg.icons !== "nerd") cfg.icons = DEFAULTS.icons;
+	if (cfg.icons !== "none" && cfg.icons !== "nerd" && cfg.icons !== "auto") cfg.icons = DEFAULTS.icons;
 	cfg.tools.previewLines = Math.max(0, Math.floor(cfg.tools.previewLines));
+	cfg.tools.changeLines = Math.max(0, Math.floor(cfg.tools.changeLines));
+	cfg.tools.timeGapSec = Math.max(0, cfg.tools.timeGapSec);
 	cfg.git.statusTtlMs = Math.max(250, cfg.git.statusTtlMs);
 	cfg.quota.ttlMs = Math.max(15_000, cfg.quota.ttlMs);
 	return cfg;

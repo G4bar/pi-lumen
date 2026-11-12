@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DEFAULTS, type LumenConfig } from "../src/config.ts";
-import { atOf, formatAt, registerToolTimes, rowAt } from "../src/tools/at.ts";
+import { atOf, formatAt, registerToolTimes, rowAt, showsTime } from "../src/tools/at.ts";
 
-const cfg = (time: boolean): LumenConfig => ({ ...DEFAULTS, tools: { ...DEFAULTS.tools, time } });
+const cfg = (time: boolean, timeGapSec = 0): LumenConfig => ({ ...DEFAULTS, tools: { ...DEFAULTS.tools, time, timeGapSec } });
 
 describe("tool row time", () => {
 	it("reads the recorded time from details only when valid", () => {
@@ -24,9 +24,17 @@ describe("tool row time", () => {
 		expect(rowAt(() => cfg(false), { lumenAt: 5 })).toBeUndefined();
 	});
 
-	function harness(time: boolean) {
+	it("showsTime: first time always, then only when far enough from the marker", () => {
+		expect(showsTime(1000, undefined, 5000)).toBe(true);
+		expect(showsTime(3000, 1000, 5000)).toBe(false);
+		expect(showsTime(6000, 1000, 5000)).toBe(true);
+		expect(showsTime(1000, 6000, 5000)).toBe(true); // results can arrive out of start order
+		expect(showsTime(1000, 1000, 0)).toBe(true);
+	});
+
+	function harness(time: boolean, gap = 0) {
 		const handlers: Record<string, (e: any) => unknown> = {};
-		registerToolTimes({ on: (n: string, h: (e: any) => unknown) => void (handlers[n] = h) } as any, () => cfg(time));
+		registerToolTimes({ on: (n: string, h: (e: any) => unknown) => void (handlers[n] = h) } as any, () => cfg(time, gap));
 		return handlers;
 	}
 
@@ -45,5 +53,26 @@ describe("tool row time", () => {
 		expect(h.tool_result?.({ toolCallId: "1", toolName: "grep", details: {} })).toBeUndefined();
 		expect(h.tool_result?.({ toolCallId: "2", toolName: "bash", details: [1] })).toBeUndefined();
 		expect(harness(false).tool_result?.({ toolCallId: "3", toolName: "bash", details: {} })).toBeUndefined();
+	});
+
+	it("with a gap, rows right after the run start get no time; the next far one does and moves the marker", () => {
+		let now = 100_000;
+		const spy = vi.spyOn(Date, "now").mockImplementation(() => now);
+		try {
+			const h = harness(true, 5);
+			h.agent_start?.({});
+			const run = (id: string) => {
+				h.tool_execution_start?.({ toolCallId: id, toolName: "bash" });
+				return h.tool_result?.({ toolCallId: id, toolName: "bash", details: {} });
+			};
+			now += 1000;
+			expect(run("a")).toBeUndefined();
+			now += 9000;
+			expect((run("b") as { details: Record<string, unknown> }).details.lumenAt).toBe(110_000);
+			now += 2000;
+			expect(run("c")).toBeUndefined();
+		} finally {
+			spy.mockRestore();
+		}
 	});
 });

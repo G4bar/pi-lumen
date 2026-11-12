@@ -1,7 +1,7 @@
 import { createEditToolDefinition, createWriteToolDefinition, type EditToolDetails, type ExtensionAPI, renderDiff } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
 import { rowAt } from "./at.ts";
-import { callLine, expandHint, framedLines, plural, resultLine, textOf } from "./format.ts";
+import { callLine, changeBody, expandHint, plural, resultLine, textOf } from "./format.ts";
 
 /** Count added/removed lines in pi's display diff (`+N text` / `-N text`). */
 export function diffStats(diff: string): { added: number; removed: number } {
@@ -28,7 +28,7 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 		execute: (id, params, signal, onUpdate, ctx) => createEditToolDefinition(ctx.cwd).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
 			const n = Array.isArray(args.edits) ? args.edits.length : 0;
-			return textOf(ctx, callLine(theme, ctx, "Edit", `${args.path ?? ""}${n > 1 ? ` · ${n} edits` : ""}`));
+			return textOf(ctx, callLine(theme, ctx, "Edit", `${args.path ?? ""}${n > 1 ? ` · ${n} edits` : ""}`), ctx.expanded);
 		},
 		renderResult(result, { expanded, isPartial }, theme, ctx) {
 			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", "editing…")));
@@ -38,8 +38,9 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 			if (!details?.diff) return textOf(ctx, resultLine(theme, theme.fg("success", "applied"), ctx.durationMs, at));
 			const { added, removed } = diffStats(details.diff);
 			const summary = `${theme.fg("success", `+${added}`)} ${theme.fg("error", `-${removed}`)}`;
-			const body = expanded ? framedLines(theme, renderDiff(details.diff).split("\n"), getCfg().tools.previewLines, (l) => l) : "";
-			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + expandHint(theme, ctx, expanded) + body);
+			const { previewLines, changeLines } = getCfg().tools;
+			const { body, toggle } = changeBody(theme, renderDiff(details.diff).split("\n"), expanded, changeLines, previewLines);
+			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + (toggle ? expandHint(theme, ctx, expanded) : "") + body);
 		},
 	});
 
@@ -49,15 +50,19 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 		renderShell: "default",
 		execute: (id, params, signal, onUpdate, ctx) => createWriteToolDefinition(ctx.cwd).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
-			return textOf(ctx, callLine(theme, ctx, "Write", args.path ?? ""));
+			return textOf(ctx, callLine(theme, ctx, "Write", args.path ?? ""), ctx.expanded);
 		},
-		renderResult(result, { isPartial }, theme, ctx) {
+		renderResult(result, { expanded, isPartial }, theme, ctx) {
 			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", "writing…")));
 			const at = rowAt(getCfg, result.details);
 			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", firstLine(result.content)), ctx.durationMs, at));
 			const content = typeof ctx.args?.content === "string" ? ctx.args.content : "";
-			const n = content ? content.replace(/\n$/, "").split("\n").length : 0;
-			return textOf(ctx, resultLine(theme, theme.fg("success", `wrote ${plural(n, "line")}`), ctx.durationMs, at));
+			const lines = content ? content.replace(/\n$/, "").split("\n") : [];
+			const width = String(lines.length).length;
+			const rows = lines.map((l, i) => theme.fg("toolDiffAdded", `${String(i + 1).padStart(width)} + ${l}`));
+			const { previewLines, changeLines } = getCfg().tools;
+			const { body, toggle } = changeBody(theme, rows, expanded, changeLines, previewLines);
+			return textOf(ctx, resultLine(theme, theme.fg("success", `wrote ${plural(lines.length, "line")}`), ctx.durationMs, at) + (toggle ? expandHint(theme, ctx, expanded) : "") + body);
 		},
 	});
 }

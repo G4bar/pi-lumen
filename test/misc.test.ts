@@ -1,3 +1,4 @@
+import { detectNerdFonts, resolveIcons, thinkIcon } from "../src/statusline/icons.ts";
 import { describe, expect, it } from "vitest";
 import { DEFAULTS, resolveConfig } from "../src/config.ts";
 import { isStampData, stampLabel } from "../src/stamp.ts";
@@ -19,7 +20,7 @@ describe("config", () => {
 	it("rejects bad enums and clamps ttl", () => {
 		const c = resolveConfig({ placement: "left", icons: "x", quota: { ttlMs: 1 }, git: { statusTtlMs: 1 } }, null);
 		expect(c.placement).toBe("below");
-		expect(c.icons).toBe("none");
+		expect(c.icons).toBe("auto");
 		expect(c.quota.ttlMs).toBe(15_000);
 		expect(c.git.statusTtlMs).toBe(250);
 	});
@@ -56,9 +57,28 @@ describe("tool helpers", () => {
 		expect(diffStats("+1 a\n-2 b\n 3 c\n+4 d\n--- x\n+++ y")).toEqual({ added: 2, removed: 1 });
 	});
 	it("one-line + plural", () => {
-		expect(oneLine("a\n  b")).toBe("a ⏎ b");
+		expect(oneLine("a\n  b")).toBe("a b");
 		expect(oneLine("x".repeat(200)).length).toBe(110);
 		expect(plural(1, "line")).toBe("1 line");
 		expect(plural(2, "line")).toBe("2 lines");
+	});
+});
+
+describe("nerd icons", () => {
+	const env = (e: Record<string, string>): NodeJS.ProcessEnv => e;
+	it("auto follows the terminal heuristic and the env overrides; explicit modes win", () => {
+		expect(detectNerdFonts(env({ TERM_PROGRAM: "WezTerm" }))).toBe(true);
+		expect(detectNerdFonts(env({ GHOSTTY_RESOURCES_DIR: "/x" }))).toBe(true);
+		expect(detectNerdFonts(env({ TERM: "xterm-256color" }))).toBe(false);
+		expect(detectNerdFonts(env({ TERM_PROGRAM: "WezTerm", POWERLINE_NERD_FONTS: "0" }))).toBe(false);
+		expect(detectNerdFonts(env({ LUMEN_NERD_FONTS: "1" }))).toBe(true);
+		expect(resolveIcons("auto", env({ TERM_PROGRAM: "kitty" }))).toBe("nerd");
+		expect(resolveIcons("none", env({ TERM_PROGRAM: "kitty" }))).toBe("none");
+		expect(resolveIcons("nerd", env({}))).toBe("nerd");
+	});
+	it("thinking level glyphs: one per level, none for off/max", () => {
+		expect(thinkIcon("high")).toBe("\uF111 ");
+		expect(thinkIcon("off")).toBe("");
+		expect(thinkIcon("max")).toBe("");
 	});
 });

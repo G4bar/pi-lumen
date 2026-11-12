@@ -4,7 +4,7 @@ A small extension for [pi](https://pi.dev) (tested on pi 1.5.2): a powerline-sty
 thinking-level colors, compact `read`/`bash`/`edit`/`write` rows and transcript timestamps.
 
 ```text
-deepseek · V4 Pro │ think:high 12s │ 84k/200k 42% │ $0.42 │ CH 81% · 62 tok/s │ lumen │ main *2 +1
+deepseek · V4 Pro │ [high] 12s │ 84k/200k 42% │ $0.42 │ CH 81% · 62 tok/s │ lumen │ main *2 +1
 ```
 
 ## Install
@@ -61,23 +61,39 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
 
 ```text
 ● Bash (npm test)
-  └ exit 0 · 12 lines · 3.1s · 14:32:07
+  └ exit 0 · 12 lines · 3.1s · ctrl+o to expand
 ● Edit (src/a.ts)
-  └ +3 -1 · 0.02s · 14:32:11
+  └ +1 -1 · 0.02s
+  ────────────────────────────────
+  -1 const a = 1;
+  +1 const a = 10;
+   2 const b = 2;
+  ────────────────────────────────
+● Bash
+  │ git add -A
+  │ git commit -m "x"
+  └ exit 0 · 2 lines · 0.4s
 ```
 
-The last field is the wall-clock **start** time of the call (date added when it is not today). It is written into
-the tool result's `details` (`lumenAt`) by a `tool_result` handler, so pi persists it with the result: no extra
-session entries, nothing sent to the model, and it is still there after a resume. Results recorded before this
-show no time. Only `read`/`bash`/`edit`/`write` rows have it; `find`/`grep`/`ls` and other extensions' tools keep
-their own rendering. `tools.time: false` turns it off.
-
-The hint (`ctrl+o to expand`, from pi's own keybinding) sits on the result row, so a collapsed tool is two lines.
-Expanding draws the body between two full-width dim rules, indented under the `└`:
+- **Changes are always visible.** `edit` shows pi's coloured diff and `write` the written content as `+` lines,
+  right under the result row, up to `tools.changeLines` (12) rows; `ctrl+o` shows up to `tools.previewLines` (40).
+  The expand hint only appears when something is hidden.
+- **Hint on the result row** (`ctrl+o to expand`, from pi's own keybinding), so a collapsed tool is two lines.
+  `read` and `bash` collapse to their summary; expanding draws the body between two full-width dim rules.
+- **Multi-line commands** keep their real lines under the header (4 while collapsed, then `… +N lines`); there is no
+  flattening into a single row.
+- **Narrow terminals**: every row is cut to the real width with `…` (never wrapped into unindented fragments), and the
+  rules are drawn at that width. An expanded call header wraps instead, so the full command stays readable.
+- **Clock time** (date when it is not today) is the **start** of the call, shown only when it is at least
+  `tools.timeGapSec` (5) seconds away from the last visible time (the run start, which already carries the user
+  stamp, or the previous visible tool): fast runs show no repeated `14:32:07`, long ones keep a timeline. It is
+  written into the tool result's `details` (`lumenAt`) by a `tool_result` handler, so pi persists it with the
+  result: no extra session entries, nothing sent to the model, still there after a resume. `tools.time: false`
+  turns it off, `timeGapSec: 0` shows it on every row. Only `read`/`bash`/`edit`/`write` rows have it.
 
 ```text
 ● Read (src/a.ts)
-  └ 70 lines · 0.01s · 14:32:07 · ctrl+o to collapse
+  └ 70 lines · 0.01s · ctrl+o to collapse
   ────────────────────────────────────────────
    1 │ import { x } from "y";
    2 │ const a = 1;
@@ -88,7 +104,6 @@ Expanding draws the body between two full-width dim rules, indented under the `�
   bundled theme via `tools.theme`) is loaded lazily, one grammar at a time, the first time a file is expanded; until it
   is ready (and for files above 120k characters, or if Shiki is missing) pi's own highlighter paints. `tools.shiki: false`
   keeps pi's highlighter only. Images are drawn by pi under a one-line `image` row.
-- `bash`: the output; `edit`: pi's coloured diff. Both are capped at `tools.previewLines`.
 
 `find`/`grep`/`ls` are left alone.
 
@@ -97,12 +112,12 @@ Expanding draws the body between two full-width dim rules, indented under the `�
 The working spinner is painted with the thinking level color. With thinking blocks hidden, the label is
 each row keeps its own label: the streaming row ticks `Thinking… 12s`, finished rows stay at `Thought for 12s`
 (pi has one global label, so the component's setter is wrapped per row; if pi changes that class the wrapper
-turns itself off). The status line shows the run total (`think:high 12s`).
+turns itself off). The status line shows the run total (`[high] 12s`).
 
 ## Timestamps
 
 A dim right-aligned `HH:mm:ss` under each user message and each run's final assistant message (not the
-intermediate tool-use ones; tool calls carry their own time on the result row, see Compact tools); the date appears when the day changes. **They are stored as custom entries in
+intermediate tool-use ones); the date appears when the day changes. **They are stored as custom entries in
 the session file** (≈ 2 per exchange); they are never sent to the model. No backfill of older messages.
 Set `stamp.enabled: false` to stop writing them; `stamp.duration: true` adds the run duration.
 
@@ -115,12 +130,11 @@ Optional, key `lumen` in `settings.json`:
   "lumen": {
     "placement": "below",
     "separator": "│",
-    "icons": "none",
+    "icons": "auto",
     "git": { "statusTtlMs": 2000 },
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
-    "tools": { "enabled": true, "previewLines": 40, "time": true, "shiki": true, "theme": "github-dark" },
-    "prompt": { "icon": true },
+    "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": true, "timeGapSec": 5, "shiki": true, "theme": "github-dark" },
     "inlineStatusKeys": []
   }
 }
@@ -128,8 +142,7 @@ Optional, key `lumen` in `settings.json`:
 
 `tools.enabled` is read from the global `settings.json` only (tools are registered at load, before pi's trust
 decision about the project is known); every other key also honours the project `.pi/settings.json` as merged by pi.
-`icons: "nerd"` adds Nerd Font glyphs. `prompt.icon` draws `❯` in the editor; it is skipped if another
-extension already owns the editor. Tools are registered at load: changing `tools.enabled` needs a restart.
+`icons` is `auto` (default: Nerd Font glyphs when the terminal looks like Ghostty, kitty, WezTerm, iTerm, Alacritty or Kaku; override with `POWERLINE_NERD_FONTS=1|0`), `nerd` or `none`. The glyphs are on the model, thinking level (one per level), context, directory and git branch. Tools are registered at load: changing `tools.enabled` needs a restart.
 `inlineStatusKeys` is a list of status keys (as shown by `/status`, e.g. `["sync"]`) to keep in the status line.
 Keys such as `powerline` (pi-powerline-footer) or `tokenSpeed` (pi-token-speed) are ignored and can be removed.
 
@@ -139,7 +152,7 @@ See [NOTICE.md](NOTICE.md). Ideas and a few small functions come from
 [pi-powerline-footer](https://github.com/nicobailon/pi-powerline-footer) (segments, colors, rainbow, cache
 formula, git parsing), [pi-stamp](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-stamp)
 (timestamp entries) and [pi-pretty](https://github.com/heyhuynhgiabuu/pi-pretty) (compact tool rows,
-duration format, prompt glyph, per-row thinking labels) and
+duration format, per-row thinking labels) and
 [pi-token-speed](https://github.com/gsanhueza/pi-token-speed) (tok/s sliding window), which in turn credit Powerlevel10k and oh-my-pi. pi-powerline-footer
 declares MIT but ships no LICENSE file.
 
@@ -153,4 +166,4 @@ npm run test:e2e   # needs tmux and a working `pi`; set PI_BIN to override the b
 
 The e2e suite runs the real pi TUI inside tmux with an isolated agent dir, this checkout as the only extension
 and a scripted mock model server (no network). It asserts on the rendered screen: tool rows, expansion,
-the prompt box, `Working` in the border, status line, timestamps, markdown and per-row thinking labels.
+`Working` in the prompt border, status line, timestamps, markdown and per-row thinking labels.

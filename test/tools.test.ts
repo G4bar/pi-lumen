@@ -1,10 +1,11 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 import { loadBootSettings } from "../src/config.ts";
 import { RowThinking } from "../src/thinking-label.ts";
-import { framedLines } from "../src/tools/format.ts";
+import { Block, changeBody, framed, framedLines } from "../src/tools/format.ts";
 import { outputLines } from "../src/tools/bash.ts";
 import { builtinToolOptions } from "../src/tools/options.ts";
 import { codeBody, splitRead } from "../src/tools/read.ts";
@@ -118,14 +119,49 @@ describe("codeBody", () => {
 	const theme = { fg: (_c: string, s: string) => s, bold: (s: string) => s } as never;
 	it("frames the body with full-width rules, a right-aligned gutter and a remaining-lines marker", () => {
 		const out = codeBody(theme, ["a", "b", "c"], "x.txt", 9, 2, "[hint]", undefined, 6);
-		expect(out).toBe("\n\n  ──────\n   9 │ a\n  10 │ b\n  … 1 more lines\n  [hint]\n  ──────");
+		expect(out).toBe("\n  ──────\n   9 │ a\n  10 │ b\n  … 1 more lines\n  [hint]\n  ──────");
 	});
 });
 
 describe("framedLines", () => {
 	const theme = { fg: (_c: string, s: string) => s } as never;
 	it("frames, caps and marks the remainder; empty input renders nothing", () => {
-		expect(framedLines(theme, ["a", "b", "c"], 2, undefined, 4)).toBe("\n\n  ────\n  a\n  b\n  … 1 more lines\n  ────");
+		expect(framedLines(theme, ["a", "b", "c"], 2, undefined, 4)).toBe("\n  ────\n  a\n  b\n  … 1 more lines\n  ────");
 		expect(framedLines(theme, [], 5)).toBe("");
+	});
+});
+
+describe("Block (narrow terminals)", () => {
+	const theme = { fg: (_c: string, s: string) => s } as never;
+	it("cuts every row to the width instead of wrapping into unindented fragments", () => {
+		const rows = new Block("● Bash (a very long command line that does not fit)\n  └ exit 0 · 3 lines · 0.01s · ctrl+o to expand").render(20);
+		expect(rows).toHaveLength(2);
+		for (const r of rows) expect(visibleWidth(r)).toBeLessThanOrEqual(20);
+		expect(rows[0]).toContain("…");
+	});
+	it("wraps only when asked (expanded call header)", () => {
+		expect(new Block("word ".repeat(12).trim(), true).render(20).length).toBeGreaterThan(1);
+	});
+	it("draws rules at the real width, never wider", () => {
+		const rows = new Block(framed(theme, ["x"])).render(30);
+		const rule = rows.find((r) => r.includes("─")) ?? "";
+		expect(visibleWidth(rule)).toBe(30);
+		expect(new Block(framed(theme, ["x"])).render(8).every((r) => visibleWidth(r) <= 8)).toBe(true);
+		expect(new Block("  \n").render(10)).toEqual([]);
+	});
+});
+
+describe("changeBody", () => {
+	const theme = { fg: (_c: string, s: string) => s } as never;
+	it("shows changes by default, caps them, and only offers expansion when something is hidden", () => {
+		const rows = ["a", "b", "c", "d"];
+		const small = changeBody(theme, rows, false, 10, 20);
+		expect(small.toggle).toBe(false);
+		expect(small.body).toContain("  d");
+		const capped = changeBody(theme, rows, false, 2, 3);
+		expect(capped.toggle).toBe(true);
+		expect(capped.body).toContain("… 2 more lines");
+		expect(changeBody(theme, rows, true, 2, 3).body).toContain("… 1 more lines");
+		expect(changeBody(theme, [], false, 5, 5)).toEqual({ body: "", toggle: false });
 	});
 });

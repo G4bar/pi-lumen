@@ -3,12 +3,13 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 import { type LumenConfig, loadState, resolveConfig, type StateOverrides, saveState, statePath } from "./config.ts";
 import { GitStatusCache } from "./git.ts";
-import { installPromptEditor, canUsePromptEditor } from "./prompt-editor.ts";
 import { QuotaClient } from "./quota.ts";
 import { formatStatusReport, groupLoaded, type LoadedExtension } from "./status.ts";
 import { RowThinking } from "./thinking-label.ts";
 import { cacheView, computeStats, emptyStats, type LedgerStats, ThinkingTimer, TpsTracker } from "./stats.ts";
-import { spinnerFrames, thinkingPaint } from "./statusline/colors.ts";
+
+import { spinnerFrames } from "./statusline/colors.ts";
+import { resolveIcons } from "./statusline/icons.ts";
 import { fitLine } from "./statusline/layout.ts";
 import type { RenderData } from "./statusline/segments.ts";
 
@@ -37,7 +38,6 @@ export class LumenSession {
 	/** False once pi disposed our footer because another extension installed its own. */
 	private footerOwned = false;
 	private lastLabel: string | undefined;
-	private removePromptEditor: (() => void) | undefined;
 	private readonly git: GitStatusCache;
 	private quota: QuotaClient | undefined;
 
@@ -122,7 +122,7 @@ export class LumenSession {
 		const ext = [...(this.footerData?.getExtensionStatuses() ?? [])].filter(([k]) => inline.has(k)).map(([, v]) => v);
 		return {
 			theme: ctx.ui.theme,
-			icons: this.cfg.icons,
+			icons: resolveIcons(this.cfg.icons),
 			provider: model?.provider,
 			modelName: model?.name || model?.id,
 			thinkingLevel: this.pi.getThinkingLevel(),
@@ -205,11 +205,6 @@ export class LumenSession {
 		);
 		this.rows.install();
 		this.applyWorkingIndicator();
-		if (this.cfg.prompt.icon && canUsePromptEditor(ctx)) {
-			this.removePromptEditor = installPromptEditor(ctx, () => {
-				return thinkingPaint(ctx.ui.theme, this.pi.getThinkingLevel());
-			});
-		}
 		this.bump();
 	}
 
@@ -217,8 +212,6 @@ export class LumenSession {
 		if (!this.uiInstalled) return;
 		this.uiInstalled = false;
 		try {
-			this.removePromptEditor?.();
-			this.removePromptEditor = undefined;
 			this.ctx.ui.setWidget(WIDGET_KEY, undefined);
 			if (this.footerOwned) this.ctx.ui.setFooter(undefined);
 			this.footerOwned = false;

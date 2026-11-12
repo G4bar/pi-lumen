@@ -91,7 +91,7 @@ export async function startPi(opts: Options): Promise<Session> {
 			defaultModel: "mock-model",
 			defaultThinkingLevel: "medium",
 			quietStartup: true,
-			lumen: { quota: { enabled: false } },
+			lumen: { quota: { enabled: false }, icons: "none" },
 			...opts.settings,
 		}),
 	);
@@ -173,7 +173,7 @@ export async function startPi(opts: Options): Promise<Session> {
 		},
 	};
 	try {
-		await session.waitFor("❯", 30_000);
+		await session.waitFor(/mock ·/, 30_000);
 	} catch (e) {
 		await session.stop();
 		throw e;

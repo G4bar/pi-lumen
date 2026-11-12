@@ -2,7 +2,7 @@ import { createReadToolDefinition, type ExtensionAPI, getLanguageFromPath, highl
 import type { BundledLanguage, BundledTheme } from "shiki";
 import type { LumenConfig } from "../config.ts";
 import { rowAt } from "./at.ts";
-import { callLine, expandHint, framed, plural, resultLine, ruleWidth, textOf } from "./format.ts";
+import { callLine, expandHint, framed, plural, resultLine, textOf } from "./format.ts";
 import { builtinToolOptions } from "./options.ts";
 import { cachedHighlight, languageFor, resolveTheme, warmHighlight } from "./shiki.ts";
 
@@ -44,7 +44,7 @@ function plainPaint(theme: Theme, shown: string[], path: string): string[] {
  * highlighter paints, so the first frame is never blocked on loading a grammar.
  */
 export function codeBody(theme: Theme, lines: string[], path: string, firstLine: number, max: number, hint: string | undefined, plan?: ShikiPlan, width?: number): string {
-	if (!lines.length) return hint ? framed(theme, [theme.fg("muted", hint)], width ?? ruleWidth()) : "";
+	if (!lines.length) return hint ? framed(theme, [theme.fg("muted", hint)], width) : "";
 	const shown = lines.slice(0, max);
 	const fromShiki = plan ? cachedHighlight(plan.theme, plan.lang, shown.join("\n")) : undefined;
 	const painted = fromShiki?.length === shown.length ? fromShiki : plainPaint(theme, shown, path);
@@ -52,7 +52,7 @@ export function codeBody(theme: Theme, lines: string[], path: string, firstLine:
 	const rows = painted.map((l, i) => `${theme.fg("dim", `${String(firstLine + i).padStart(gutter)} │`)} ${l}`);
 	if (lines.length > shown.length) rows.push(theme.fg("muted", `… ${lines.length - shown.length} more lines`));
 	if (hint) rows.push(theme.fg("muted", hint));
-	return framed(theme, rows, width ?? ruleWidth());
+	return framed(theme, rows, width);
 }
 
 /** Resolve (once per row) which Shiki theme/language to use and warm the cache, then redraw the row. */
@@ -88,7 +88,7 @@ export function registerRead(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 		renderCall(args, theme, ctx) {
 			let range = "";
 			if (args.offset || args.limit) range = ` :${args.offset ?? 1}${args.limit ? `+${args.limit}` : ""}`;
-			return textOf(ctx, callLine(theme, ctx, "Read", `${args.path}${range}`));
+			return textOf(ctx, callLine(theme, ctx, "Read", `${args.path}${range}`), ctx.expanded);
 		},
 		renderResult(result, { expanded, isPartial }, theme, ctx) {
 			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", "reading…")));

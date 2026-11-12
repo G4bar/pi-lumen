@@ -4,6 +4,8 @@ import { callLine, expandHint, framedLines, oneLine, plural, resultLine, textOf 
 import { rowAt } from "./at.ts";
 import { builtinToolOptions } from "./options.ts";
 
+/** Lines of a multi-line command shown while collapsed. */
+const MAX_CALL_LINES = 4;
 const EXIT_RE = /Command exited with code (\d+)\s*$/;
 const NOTICE_RE = /\n*\[Showing (?:last|lines)[^\]]*\]\s*$/;
 
@@ -26,8 +28,14 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 		renderShell: "default",
 		execute: (id, params, signal, onUpdate, ctx) => createBashToolDefinition(ctx.cwd, builtinToolOptions(pi).bash).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
-			const suffix = args.timeout ? ` · timeout ${args.timeout}s` : "";
-			return textOf(ctx, callLine(theme, ctx, "Bash", `${args.command ?? ""}${suffix}`));
+			const timeout = args.timeout ? `timeout ${args.timeout}s` : "";
+			const cmdLines = String(args.command ?? "").split("\n");
+			if (cmdLines.length === 1) return textOf(ctx, callLine(theme, ctx, "Bash", `${cmdLines[0]}${timeout ? ` · ${timeout}` : ""}`), ctx.expanded);
+			// Multi-line script: the real lines under the header, not one flattened row.
+			const max = ctx.expanded ? cmdLines.length : MAX_CALL_LINES;
+			const rows = cmdLines.slice(0, max).map((l) => `${theme.fg("dim", "  │")} ${theme.fg("toolOutput", l)}`);
+			if (cmdLines.length > max) rows.push(`${theme.fg("dim", "  │")} ${theme.fg("muted", `… +${cmdLines.length - max} lines`)}`);
+			return textOf(ctx, [callLine(theme, ctx, "Bash", timeout || undefined), ...rows].join("\n"), ctx.expanded);
 		},
 		renderResult(result, { expanded, isPartial }, theme, ctx) {
 			const text = result.content.map((c) => (c.type === "text" ? c.text : "")).join("\n");

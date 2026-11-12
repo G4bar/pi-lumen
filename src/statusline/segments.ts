@@ -4,6 +4,7 @@ import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { GitCounts } from "../git.ts";
 import type { Quota } from "../quota.ts";
 import { formatDuration } from "../time.ts";
+import { NERD, thinkIcon } from "./icons.ts";
 import { cacheColor, contextColor, quotaColor, thinkingPaint } from "./colors.ts";
 
 /** Everything a render needs, gathered by the caller so segments stay pure. */
@@ -30,19 +31,24 @@ export function formatTokens(n: number): string {
 	return `${Math.round(n / 100_000) / 10}M`.replace(".0M", "M");
 }
 
-const ICON = { model: "󰧑 ", dir: " ", git: " " } as const;
-
 export function modelSegment(d: RenderData, maxWidth?: number): string {
 	const name = (d.modelName ?? "no-model").replace(/^Claude\s+/i, "");
-	const icon = d.icons === "nerd" ? ICON.model : "";
+	const icon = d.icons === "nerd" ? NERD.model : "";
 	const full = `${icon}${d.provider ? `${d.provider} · ` : ""}${name}`;
 	const text = maxWidth !== undefined ? truncateToWidth(full, Math.max(1, maxWidth), "…") : full;
 	return d.theme.fg("accent", text);
 }
 
-export function thinkSegment(d: RenderData): string {
+/** Short level names, as in pi-powerline-footer. */
+const LEVEL_SHORT: Record<string, string> = { minimal: "min", low: "low", medium: "med", high: "high", xhigh: "xhi", max: "max" };
+
+/** `● high` with Nerd Fonts, `[high]` without; hidden when thinking is off. Colored like pi's thinking border. */
+export function thinkSegment(d: RenderData): string | undefined {
 	const level = d.thinkingLevel ?? "off";
-	let out = thinkingPaint(d.theme, level)(`think:${level}`);
+	if (level === "off") return undefined;
+	const short = LEVEL_SHORT[level] ?? level;
+	const label = d.icons === "nerd" && thinkIcon(level) ? `${thinkIcon(level)}${short}` : `[${short}]`;
+	let out = thinkingPaint(d.theme, level)(label);
 	if (d.thinkingMs !== undefined && d.thinkingMs >= 1000) out += d.theme.fg("dim", ` ${formatDuration(d.thinkingMs)}`);
 	return out;
 }
@@ -52,13 +58,13 @@ export function contextSegment(d: RenderData): string {
 	if (!c) return d.theme.fg("dim", "?/?");
 	const win = formatTokens(c.window);
 	const used = c.tokens == null ? "?" : formatTokens(c.tokens);
-	const text = `${used}/${win}${c.percent == null ? "" : ` ${Math.round(c.percent)}%`}`;
+	const text = `${d.icons === "nerd" ? NERD.context : ""}${used}/${win}${c.percent == null ? "" : ` ${Math.round(c.percent)}%`}`;
 	return d.theme.fg(contextColor(c.percent), text);
 }
 
 export function spendSegment(d: RenderData): string | undefined {
 	const s = d.spend;
-	if (s.mode === "api") return d.theme.fg("muted", `$${s.cost.toFixed(s.cost < 10 ? 2 : 1)}`);
+	if (s.mode === "api") return d.theme.fg("muted", `$${s.cost.toFixed(s.cost < 10 ? 2 : 1)}`); // `$` is already the cost glyph
 	if (s.quota && (s.quota.fiveHour !== undefined || s.quota.sevenDay !== undefined)) {
 		const part = (label: string, v: number | undefined): string | undefined => {
 			if (v === undefined) return undefined;
@@ -81,13 +87,13 @@ export function cacheTpsSegment(d: RenderData): string | undefined {
 }
 
 export function dirSegment(d: RenderData): string {
-	return d.theme.fg("muted", `${d.icons === "nerd" ? ICON.dir : ""}${basename(d.cwd) || d.cwd}`);
+	return d.theme.fg("muted", `${d.icons === "nerd" ? NERD.dir : ""}${basename(d.cwd) || d.cwd}`);
 }
 
 export function gitSegment(d: RenderData, withCounts: boolean): string | undefined {
 	if (!d.branch) return undefined;
 	const dirty = d.git && (d.git.unstaged || d.git.staged || d.git.untracked);
-	const icon = d.icons === "nerd" ? ICON.git : "";
+	const icon = d.icons === "nerd" ? NERD.git : "";
 	let out = d.theme.fg(dirty ? "warning" : "success", `${icon}${d.branch}`);
 	if (withCounts && d.git) {
 		const c: string[] = [];

@@ -18,27 +18,27 @@ function promptBox(screen: string): { top: number; lines: string[] } {
 describe.skipIf(!hasTmux || !hasPi)("prompt box", () => {
 	const h = useSession();
 
-	it("idle: full-width borders around one `❯` line (3 rows, same height as native)", async () => {
+	it("idle: pi's own editor, no glyph: full-width borders around one empty line (3 rows)", async () => {
 		const s = await h.start({ responder: respond([]) });
 		const { lines } = promptBox(s.screen());
 		expect(lines).toHaveLength(3);
 		expect(lines[0]).toMatch(BORDER);
 		expect(lines[0]?.length).toBe(COLS);
-		expect(lines[1]).toBe("❯");
+		expect(lines[1]?.trim()).toBe("");
 		expect(lines[2]).toMatch(BORDER);
+		expect(s.screen()).not.toContain("❯");
 	});
 
-	it("typed text sits after the glyph; long text wraps without moving the glyph", async () => {
+	it("typed text starts at the left edge and wraps normally", async () => {
 		const s = await h.start({ responder: respond([]) });
 		s.type("hello world");
-		await s.waitFor("❯ hello world");
+		await s.waitFor("hello world");
 		s.type(` ${"abc ".repeat(40)}`);
 		await s.waitFor(/abc abc abc/);
 		const { lines } = promptBox(s.screen());
 		expect(lines.length).toBeGreaterThan(3);
-		expect(lines[1]).toMatch(/^❯ hello world/);
-		expect(lines.slice(2, -1).every((l) => l.startsWith("  ") || l === "")).toBe(true);
-		expect(lines.filter((l) => l.includes("❯"))).toHaveLength(1);
+		expect(lines[1]).toMatch(/^\s?hello world/);
+		expect(s.screen()).not.toContain("❯");
 	});
 
 	it("`Working` lives in the prompt's top border while streaming, and the box keeps its height", async () => {
@@ -64,7 +64,7 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 	it("below the prompt by default: model, thinking level, context, cost, dir", async () => {
 		const s = await h.start({ responder: respond([]) });
 		const last = s.screen().split("\n").at(-1) ?? "";
-		expect(last).toMatch(/^mock · Mock Model │ think:medium │ 0\/200k 0% │ \$0\.00 │ project$/);
+		expect(last).toMatch(/^mock · Mock Model │ \[med\] │ 0\/200k 0% │ \$0\.00 │ project$/);
 	});
 
 	it("updates after a reply: tokens used, throughput", async () => {
