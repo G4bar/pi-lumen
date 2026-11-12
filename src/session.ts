@@ -9,7 +9,6 @@ import { RowThinking } from "./thinking-label.ts";
 import { cacheView, computeStats, emptyStats, type LedgerStats, ThinkingTimer, TpsTracker } from "./stats.ts";
 
 import { spinnerFrames } from "./statusline/colors.ts";
-import { resolveIcons } from "./statusline/icons.ts";
 import { fitLine } from "./statusline/layout.ts";
 import type { RenderData } from "./statusline/segments.ts";
 
@@ -122,7 +121,7 @@ export class LumenSession {
 		const ext = [...(this.footerData?.getExtensionStatuses() ?? [])].filter(([k]) => inline.has(k)).map(([, v]) => v);
 		return {
 			theme: ctx.ui.theme,
-			icons: resolveIcons(this.cfg.icons),
+			icons: this.cfg.icons,
 			provider: model?.provider,
 			modelName: model?.name || model?.id,
 			thinkingLevel: this.pi.getThinkingLevel(),

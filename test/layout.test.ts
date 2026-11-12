@@ -122,17 +122,17 @@ describe("colors and formatting", () => {
 	});
 });
 
-describe("nerd icons in the status line", () => {
-	it("adds glyphs to model, context, dir and git (think stays plain text); none mode adds none", () => {
-		const nerd = plain(buildLine(data({ icons: "nerd" }), 0, "│"));
-		expect(nerd).toContain("think:high");
-		expect(nerd).not.toContain("\uF111");
-		expect(nerd).toContain("\uF1C0 84k/200k");
-		expect(nerd).toContain("\uF115 lumen");
-		expect(nerd).toContain("\uF126 main");
-		expect(plain(buildLine(data({ icons: "none" }), 0, "│"))).not.toMatch(/[\uE000-\uF8FF]/u);
+describe("ascii icons in the status line", () => {
+	it("adds glyphs to dir, git and context (think stays plain text, model has none); none mode adds none", () => {
+		const ascii = plain(buildLine(data({ icons: "ascii" }), 0, "│"));
+		expect(ascii).toContain("think:high");
+		expect(ascii).toContain("◫ 84k/200k");
+		expect(ascii).toContain("dir lumen");
+		expect(ascii).toContain("⎇ main");
+		const none = plain(buildLine(data({ icons: "none" }), 0, "│"));
+		expect(none).not.toMatch(/[◫⎇]|dir /u);
 	});
 	it("still fits a narrow width with icons on", () => {
-		for (const w of [30, 50, 80]) expect(visibleWidth(fitLine(data({ icons: "nerd" }), w, "│"))).toBeLessThanOrEqual(w);
+		for (const w of [30, 50, 80]) expect(visibleWidth(fitLine(data({ icons: "ascii" }), w, "│"))).toBeLessThanOrEqual(w);
 	});
 });

@@ -1,4 +1,3 @@
-import { detectNerdFonts, resolveIcons } from "../src/statusline/icons.ts";
 import { describe, expect, it } from "vitest";
 import { DEFAULTS, resolveConfig } from "../src/config.ts";
 import { isStampData, stampLabel } from "../src/stamp.ts";
@@ -20,7 +19,7 @@ describe("config", () => {
 	it("rejects bad enums and clamps ttl", () => {
 		const c = resolveConfig({ placement: "left", icons: "x", quota: { ttlMs: 1 }, git: { statusTtlMs: 1 } }, null);
 		expect(c.placement).toBe("below");
-		expect(c.icons).toBe("auto");
+		expect(c.icons).toBe("ascii");
 		expect(c.quota.ttlMs).toBe(15_000);
 		expect(c.git.statusTtlMs).toBe(250);
 	});
@@ -61,24 +60,5 @@ describe("tool helpers", () => {
 		expect(oneLine("x".repeat(200)).length).toBe(110);
 		expect(plural(1, "line")).toBe("1 line");
 		expect(plural(2, "line")).toBe("2 lines");
-	});
-});
-
-describe("nerd icons", () => {
-	const env = (e: Record<string, string>): NodeJS.ProcessEnv => e;
-	it("auto follows the terminal heuristic and the env overrides; explicit modes win", () => {
-		expect(detectNerdFonts(env({ TERM_PROGRAM: "WezTerm" }))).toBe(true);
-		expect(detectNerdFonts(env({ GHOSTTY_RESOURCES_DIR: "/x" }))).toBe(true);
-		expect(detectNerdFonts(env({ TERM: "xterm-256color" }))).toBe(false);
-		expect(detectNerdFonts(env({ TERM_PROGRAM: "WezTerm", POWERLINE_NERD_FONTS: "0" }))).toBe(false);
-		expect(detectNerdFonts(env({ LUMEN_NERD_FONTS: "1" }))).toBe(true);
-		expect(resolveIcons("auto", env({ TERM_PROGRAM: "kitty" }))).toBe("nerd");
-		expect(resolveIcons("none", env({ TERM_PROGRAM: "kitty" }))).toBe("none");
-		expect(resolveIcons("nerd", env({}))).toBe("nerd");
-	});
-	it("auto also turns on when a Nerd Font is installed (unknown terminal), unless forced off", () => {
-		expect(resolveIcons("auto", env({ TERM: "xterm-256color" }), () => true)).toBe("nerd");
-		expect(resolveIcons("auto", env({ TERM: "xterm-256color" }), () => false)).toBe("none");
-		expect(resolveIcons("auto", env({ LUMEN_NERD_FONTS: "0" }), () => true)).toBe("none");
 	});
 });

@@ -133,7 +133,7 @@ Optional, key `lumen` in `settings.json`:
   "lumen": {
     "placement": "below",
     "separator": "│",
-    "icons": "auto",
+    "icons": "ascii",
     "git": { "statusTtlMs": 2000 },
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
@@ -145,7 +145,7 @@ Optional, key `lumen` in `settings.json`:
 
 `tools.enabled` is read from the global `settings.json` only (tools are registered at load, before pi's trust
 decision about the project is known); every other key also honours the project `.pi/settings.json` as merged by pi.
-`icons` is `auto` (default: Nerd Font glyphs when the terminal looks like Ghostty, kitty, WezTerm, iTerm, Alacritty or Kaku, or when `fc-list` finds an installed Nerd Font; force with `POWERLINE_NERD_FONTS=1|0` or `LUMEN_NERD_FONTS=1|0`), `nerd` or `none`. The glyphs are on the model, context, directory and git branch. Tools are registered at load: changing `tools.enabled` needs a restart.
+`icons` is `ascii` (default: plain ASCII/Unicode glyphs, no Nerd Font needed) or `none`. Old `auto`/`nerd` values fall back to `ascii`. The glyphs are on the model, context, directory and git branch. Tools are registered at load: changing `tools.enabled` needs a restart.
 `inlineStatusKeys` is a list of status keys (as shown by `/status`, e.g. `["sync"]`) to keep in the status line.
 Keys such as `powerline` (pi-powerline-footer) or `tokenSpeed` (pi-token-speed) are ignored and can be removed.
 

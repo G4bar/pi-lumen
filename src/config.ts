@@ -7,7 +7,7 @@ export interface LumenConfig {
 	enabled: boolean;
 	placement: Placement;
 	separator: string;
-	icons: "none" | "nerd" | "auto";
+	icons: "ascii" | "none";
 	cache: "session";
 	git: { statusTtlMs: number };
 	quota: { enabled: boolean; ttlMs: number };
@@ -21,7 +21,7 @@ export const DEFAULTS: LumenConfig = {
 	enabled: true,
 	placement: "below",
 	separator: "│",
-	icons: "auto",
+	icons: "ascii",
 	cache: "session",
 	git: { statusTtlMs: 2000 },
 	quota: { enabled: true, ttlMs: 90_000 },
@@ -49,7 +49,7 @@ function merge<T>(base: T, over: unknown): T {
 export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): LumenConfig {
 	const cfg = merge(merge(DEFAULTS, settingsLumen), stateOverrides);
 	if (cfg.placement !== "above" && cfg.placement !== "below") cfg.placement = DEFAULTS.placement;
-	if (cfg.icons !== "none" && cfg.icons !== "nerd" && cfg.icons !== "auto") cfg.icons = DEFAULTS.icons;
+	if (cfg.icons !== "none" && cfg.icons !== "ascii") cfg.icons = DEFAULTS.icons;
 	cfg.tools.previewLines = Math.max(0, Math.floor(cfg.tools.previewLines));
 	cfg.tools.changeLines = Math.max(0, Math.floor(cfg.tools.changeLines));
 	cfg.tools.timeGapSec = Math.max(0, cfg.tools.timeGapSec);

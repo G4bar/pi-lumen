@@ -3,13 +3,13 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { GitCounts } from "../git.ts";
 import type { Quota } from "../quota.ts";
-import { NERD } from "./icons.ts";
+import { ASCII } from "./icons.ts";
 import { cacheColor, contextColor, quotaColor, thinkingPaint } from "./colors.ts";
 
 /** Everything a render needs, gathered by the caller so segments stay pure. */
 export interface RenderData {
 	theme: Theme;
-	icons: "none" | "nerd";
+	icons: "ascii" | "none";
 	provider?: string;
 	modelName?: string;
 	thinkingLevel?: string;
@@ -31,7 +31,7 @@ export function formatTokens(n: number): string {
 
 export function modelSegment(d: RenderData, maxWidth?: number): string {
 	const name = (d.modelName ?? "no-model").replace(/^Claude\s+/i, "");
-	const icon = d.icons === "nerd" ? NERD.model : "";
+	const icon = d.icons === "ascii" ? ASCII.model : "";
 	const full = `${icon}${d.provider ? `${d.provider} · ` : ""}${name}`;
 	const text = maxWidth !== undefined ? truncateToWidth(full, Math.max(1, maxWidth), "…") : full;
 	return d.theme.fg("accent", text);
@@ -47,7 +47,7 @@ export function contextSegment(d: RenderData): string {
 	if (!c) return d.theme.fg("dim", "?/?");
 	const win = formatTokens(c.window);
 	const used = c.tokens == null ? "?" : formatTokens(c.tokens);
-	const text = `${d.icons === "nerd" ? NERD.context : ""}${used}/${win}${c.percent == null ? "" : ` ${Math.round(c.percent)}%`}`;
+	const text = `${d.icons === "ascii" ? ASCII.context : ""}${used}/${win}${c.percent == null ? "" : ` ${Math.round(c.percent)}%`}`;
 	return d.theme.fg(contextColor(c.percent), text);
 }
 
@@ -76,13 +76,13 @@ export function cacheTpsSegment(d: RenderData): string | undefined {
 }
 
 export function dirSegment(d: RenderData): string {
-	return d.theme.fg("muted", `${d.icons === "nerd" ? NERD.dir : ""}${basename(d.cwd) || d.cwd}`);
+	return d.theme.fg("muted", `${d.icons === "ascii" ? ASCII.dir : ""}${basename(d.cwd) || d.cwd}`);
 }
 
 export function gitSegment(d: RenderData, withCounts: boolean): string | undefined {
 	if (!d.branch) return undefined;
 	const dirty = d.git && (d.git.unstaged || d.git.staged || d.git.untracked);
-	const icon = d.icons === "nerd" ? NERD.git : "";
+	const icon = d.icons === "ascii" ? ASCII.git : "";
 	let out = d.theme.fg(dirty ? "warning" : "success", `${icon}${d.branch}`);
 	if (withCounts && d.git) {
 		const c: string[] = [];
