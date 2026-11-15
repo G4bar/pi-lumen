@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { GitCounts } from "../git.ts";
 import type { Quota } from "../quota.ts";
 import { ASCII } from "./icons.ts";
@@ -29,11 +29,17 @@ export function formatTokens(n: number): string {
 	return `${Math.round(n / 100_000) / 10}M`.replace(".0M", "M");
 }
 
-/** `Opus 4 (anthropic)`, all in the theme accent (coral in the pi themes); when it does not fit the end (the provider) is cut first. */
+/** `(anthropic) Opus 4`, all in the theme accent (coral in the pi themes). When it does not fit the provider shrinks first, the name last. */
 export function modelSegment(d: RenderData, maxWidth?: number): string {
-	const name = (d.modelName ?? "no-model").replace(/^Claude\s+/i, "");
-	const full = `${d.icons === "ascii" ? ASCII.model : ""}${name}${d.provider ? ` (${d.provider})` : ""}`;
-	return d.theme.fg("accent", maxWidth !== undefined ? truncateToWidth(full, Math.max(1, maxWidth), "…") : full);
+	const name = `${d.icons === "ascii" ? ASCII.model : ""}${(d.modelName ?? "no-model").replace(/^Claude\s+/i, "")}`;
+	const provider = d.provider ? `(${d.provider})` : "";
+	const paint = (text: string): string => d.theme.fg("accent", text);
+	if (maxWidth === undefined || visibleWidth(provider ? `${provider} ${name}` : name) <= maxWidth) return paint(provider ? `${provider} ${name}` : name);
+	const room = Math.max(1, maxWidth);
+	if (visibleWidth(name) >= room) return paint(truncateToWidth(name, room, "…"));
+	const left = room - visibleWidth(name) - 1; // columns for the provider and the space
+	if (!provider || left < 4) return paint(name);
+	return paint(`${truncateToWidth(provider, left, "…")} ${name}`);
 }
 
 export function thinkSegment(d: RenderData): string {

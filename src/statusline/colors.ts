@@ -1,31 +1,40 @@
 /**
  * Thinking colors, multicolor effect and threshold colors.
  *
- * `rainbow()` follows nicobailon/pi-powerline-footer v0.22.0 (theme.ts), MIT, but cycles through pi's logo colors
- * instead of powerline's rainbow. Context thresholds (70/90 %) follow the same project.
+ * `rainbow()` follows nicobailon/pi-powerline-footer v0.22.0 (theme.ts), MIT, but is a smooth gradient through
+ * pi's logo colors instead of powerline's per-character rainbow. Context thresholds (70/90 %) follow the same project.
  */
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { colorToRgb, mixColors, type RgbColorValue, rgbColor } from "@earendil-works/pi-tui";
 
 type ThemeColor = Parameters<Theme["fg"]>[0];
 export type Level = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
-/** pi's logo colors: coral, blue, yellow (fixed across themes, like the logo). */
-const RAINBOW = ["#e48a7a", "#4f8eb3", "#eab65d"];
+/** pi's logo colors, fixed across themes like the logo: coral, blue, yellow. */
+const LOGO = [rgbColor(228, 138, 122), rgbColor(79, 142, 179), rgbColor(234, 182, 93)];
 
-function hexFg(hex: string): string {
-	const h = hex.replace("#", "");
-	return `\x1b[38;2;${Number.parseInt(h.slice(0, 2), 16)};${Number.parseInt(h.slice(2, 4), 16)};${Number.parseInt(h.slice(4, 6), 16)}m`;
+/**
+ * Smooth loop through the logo colors: `t` in [0, 1) goes coral → blue → yellow → back to coral. Mixed in
+ * OKLCH, so the steps in between stay vivid (pink/violet, then teal/green) instead of turning grey.
+ */
+function logoColorAt(t: number): string {
+	const x = (((t % 1) + 1) % 1) * LOGO.length;
+	const i = Math.floor(x);
+	const { r, g, b } = colorToRgb(mixColors(LOGO[i] as RgbColorValue, LOGO[(i + 1) % LOGO.length] as RgbColorValue, x - i, "oklch"));
+	return `\x1b[38;2;${Math.round(r)};${Math.round(g)};${Math.round(b)}m`;
 }
 
-/** Per-character gradient; spaces and colons are left uncolored. Resets only the foreground. */
+/** One loop of the gradient across the text; spaces and colons are left uncolored. Resets only the foreground. */
 export function rainbow(text: string): string {
+	const chars = [...text];
+	const n = chars.filter((ch) => ch !== " " && ch !== ":").length;
 	let out = "";
 	let i = 0;
-	for (const ch of text) {
+	for (const ch of chars) {
 		if (ch === " " || ch === ":") {
 			out += ch;
 		} else {
-			out += hexFg(RAINBOW[i % RAINBOW.length] as string) + ch;
+			out += logoColorAt(i / n) + ch;
 			i++;
 		}
 	}
@@ -77,10 +86,16 @@ export function cacheColor(percent: number): ThemeColor {
 
 const BRAILLE = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-/** Working-indicator frames painted with the thinking level color (the logo colors cycle per frame from `high` up). */
+/** Braille turns per color loop: the color moves slower than the dots, which is easier on the eye. */
+const TURNS_PER_LOOP = 3;
+
+/** Working-indicator frames painted with the thinking level color (a slow logo gradient from `high` up). */
 export function spinnerFrames(theme: Theme, level: string | undefined): string[] {
 	const lv = level ?? "off";
-	if (isRainbowLevel(lv)) return BRAILLE.map((ch, i) => `${hexFg(RAINBOW[i % RAINBOW.length] as string)}${ch}\x1b[39m`);
+	if (isRainbowLevel(lv)) {
+		const n = BRAILLE.length * TURNS_PER_LOOP;
+		return Array.from({ length: n }, (_, i) => `${logoColorAt(i / n)}${BRAILLE[i % BRAILLE.length]}\x1b[39m`);
+	}
 	const paint = thinkingPaint(theme, lv);
 	return BRAILLE.map((ch) => paint(ch));
 }

@@ -34,6 +34,7 @@ export class LumenSession {
 	private throttle: ReturnType<typeof setTimeout> | undefined;
 	private tick: ReturnType<typeof setInterval> | undefined;
 	private disposed = false;
+	private readonly gitTimers = new Set<ReturnType<typeof setTimeout>>();
 	private uiInstalled = false;
 	/** False once pi disposed our footer because another extension installed its own. */
 	private footerOwned = false;
@@ -438,9 +439,27 @@ export class LumenSession {
 		this.bump();
 	}
 
+	/**
+	 * Counters after a command the user ran with `!`: pi has no event for its end, and an idle screen does not
+	 * re-render, so the cached counters would stay stale. One trailing refresh a moment after the command starts
+	 * (and one later, for slower commands).
+	 */
+	refreshGitSoon(): void {
+		for (const ms of [1200, 4000]) {
+			const t = setTimeout(() => {
+				this.gitTimers.delete(t);
+				this.invalidateGit();
+			}, ms);
+			t.unref?.();
+			this.gitTimers.add(t);
+		}
+	}
+
 	dispose(): void {
 		if (this.disposed) return;
 		this.stopTick();
+		for (const t of this.gitTimers) clearTimeout(t);
+		this.gitTimers.clear();
 		if (this.throttle) clearTimeout(this.throttle);
 		this.throttle = undefined;
 		this.uninstallUi();

@@ -57,7 +57,7 @@ describe("LumenSession", () => {
 		expect(opts.placement).toBe("belowEditor");
 		const comp = factory({ requestRender() {} });
 		const [line] = comp.render(120);
-		expect((line ?? "").replace(/\x1b\[[0-9;]*m/g, "")).toContain("Model One (openrouter)");
+		expect((line ?? "").replace(/\x1b\[[0-9;]*m/g, "")).toContain("(openrouter) Model One");
 		expect(line).toContain("think:medium");
 		expect(line).toContain("$0.50");
 		s.dispose();
@@ -146,6 +146,21 @@ describe("LumenSession", () => {
 		s.uninstallUi();
 		expect(calls.setHeader).toBeUndefined();
 		s.dispose();
+	});
+
+	it("`!command` schedules two trailing git refreshes and dispose cancels them", () => {
+		const { ctx, pi } = fake();
+		const s = new LumenSession(pi as any, ctx as any);
+		const inv = vi.spyOn(s, "invalidateGit");
+		s.refreshGitSoon();
+		expect(vi.getTimerCount()).toBe(2);
+		vi.advanceTimersByTime(1300);
+		expect(inv).toHaveBeenCalledTimes(1);
+		vi.advanceTimersByTime(3000);
+		expect(inv).toHaveBeenCalledTimes(2);
+		s.refreshGitSoon();
+		s.dispose();
+		expect(vi.getTimerCount()).toBe(0);
 	});
 
 	it("gives the footer back only while it is still ours", () => {

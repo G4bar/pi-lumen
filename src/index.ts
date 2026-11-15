@@ -91,12 +91,17 @@ export default function lumen(pi: ExtensionAPI): void {
 		const s = session;
 		if (!s) return;
 		s.touch(ctx);
+		s.invalidateGit();
 		if (s.thinking.running) s.thinkingStop();
 		s.markStatsDirty();
 	});
 
 	pi.on("tool_result", (e) => {
-		if (e.toolName === "bash" || e.toolName === "edit" || e.toolName === "write") session?.invalidateGit();
+		session?.invalidateGit(); // any tool may touch the working tree (extensions, MCP, subagents)
+	});
+
+	pi.on("user_bash", () => {
+		session?.refreshGitSoon();
 	});
 
 	pi.on("session_compact", (_e, ctx) => {

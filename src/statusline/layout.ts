@@ -3,8 +3,8 @@ import { cacheTpsSegment, contextSegment, dirSegment, extSegment, gitSegment, mo
 
 /**
  * Drop order when the line does not fit (first dropped first):
- * 1 ext → 2 git counters → 3 dir → 4 cache_tps → 5 spend → 6 git branch.
- * model, think and context always stay.
+ * 1 ext → 2 dir → 3 cache_tps → 4 spend → 5 git counters → 6 git branch.
+ * model, think and context always stay. The git branch and its counters go last: they are what you glance at.
  */
 export const MAX_LEVEL = 6;
 
@@ -14,10 +14,10 @@ export function buildLine(d: RenderData, level: number, separator: string, model
 		modelSegment(d, modelMax),
 		thinkSegment(d),
 		contextSegment(d),
-		level < 5 ? spendSegment(d) : undefined,
-		level < 4 ? cacheTpsSegment(d) : undefined,
-		level < 3 ? dirSegment(d) : undefined,
-		level < 6 ? gitSegment(d, level < 2) : undefined,
+		level < 4 ? spendSegment(d) : undefined,
+		level < 3 ? cacheTpsSegment(d) : undefined,
+		level < 2 ? dirSegment(d) : undefined,
+		level < 6 ? gitSegment(d, level < 5) : undefined,
 		level < 1 ? extSegment(d) : undefined,
 	];
 	return segs.filter((s): s is string => typeof s === "string" && s.length > 0).join(sep);

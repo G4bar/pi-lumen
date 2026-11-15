@@ -36,7 +36,7 @@ const plain = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 describe("status line", () => {
 	it("renders every segment at full width", () => {
 		const line = plain(buildLine(data(), 0, "│"));
-		expect(line).toContain("Opus 4 (anthropic)");
+		expect(line).toContain("(anthropic) Opus 4");
 		expect(line).toContain("think:high");
 		expect(line).toContain("84k/200k 42%");
 		expect(line).toContain("5h 37% · 7d 12%");
@@ -57,11 +57,12 @@ describe("status line", () => {
 		const d = data();
 		const levels = [0, 1, 2, 3, 4, 5, 6].map((l) => plain(buildLine(d, l, "│")));
 		expect(levels[1]).not.toContain("LSP");
-		expect(levels[2]).not.toContain("*2");
-		expect(levels[2]).toContain("main");
-		expect(levels[3]).not.toContain("lumen");
-		expect(levels[4]).not.toContain("tok/s");
-		expect(levels[5]).not.toContain("5h");
+		expect(levels[2]).not.toContain("lumen");
+		expect(levels[3]).not.toContain("tok/s");
+		expect(levels[4]).not.toContain("5h");
+		for (const l of levels.slice(0, 5)) expect(l).toContain("main *2 +1"); // the branch and its counters outlast everything else
+		expect(levels[5]).not.toContain("*2");
+		expect(levels[5]).toContain("main");
 		expect(levels[6]).not.toContain("main");
 		for (const l of levels) {
 			expect(l).toContain("Opus 4");
@@ -77,17 +78,18 @@ describe("status line", () => {
 		expect(line).toContain("…");
 	});
 
-	it("model is `name (provider)`: no dot, cut from the end", () => {
+	it("model is `(provider) name`: no dot, the provider shrinks before the name", () => {
 		const d = data();
-		expect(plain(modelSegment(d))).toBe("Opus 4 (anthropic)");
-		expect(plain(modelSegment(d, 12))).toBe("Opus 4 (ant…");
-		expect(plain(modelSegment(d, 4))).toBe("Opu…");
+		expect(plain(modelSegment(d))).toBe("(anthropic) Opus 4");
+		expect(plain(modelSegment(d, 12))).toBe("(ant… Opus 4"); // the provider shrinks first
+		expect(plain(modelSegment(d, 8))).toBe("Opus 4"); // then goes
+		expect(plain(modelSegment(d, 4))).toBe("Opu…"); // the name is cut last
 		expect(plain(modelSegment(data({ provider: undefined })))).toBe("Opus 4");
 	});
 
 	it("only the model is colored (theme accent); metrics, directory and git stay plain or semantic", () => {
 		const line = buildLine(data({ theme: tagged, thinkingLevel: "off" }), 0, "│");
-		expect(line).toContain("<accent>Opus 4 (anthropic)");
+		expect(line).toContain("<accent>(anthropic) Opus 4");
 		expect(line.match(/<accent>/g)).toHaveLength(1);
 		expect(line).toContain("<muted>lumen");
 	});
@@ -147,7 +149,14 @@ describe("colors and formatting", () => {
 		}
 		for (const level of ["high", "xhigh", "max"]) {
 			expect(thinkingPaint(t, level)("think")).toBe(rainbow("think"));
-			expect(new Set(spinnerFrames(t, level).map((f) => f.match(/^\x1b\[[0-9;]*m/)?.[0]))).toEqual(new Set(["\x1b[38;2;228;138;122m", "\x1b[38;2;79;142;179m", "\x1b[38;2;234;182;93m"])); // coral, blue, yellow
+			const frames = spinnerFrames(t, level);
+			const colors = frames.map((f) => f.match(/^\x1b\[38;2;(\d+;\d+;\d+)m/)?.[1] as string);
+			expect(frames.map(plain).slice(0, 10)).toEqual(["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]);
+			expect(frames).toHaveLength(30); // three braille turns per color loop
+			expect(colors[0]).toBe("228;138;122"); // starts on the logo coral
+			expect(new Set(colors).size).toBe(30); // every frame a slightly different color: no 3-color flicker
+			const step = (a: string, b: string) => Math.max(...a.split(";").map((v, i) => Math.abs(Number(v) - Number(b.split(";")[i]))));
+			expect(Math.max(...colors.map((c, i) => step(c, colors[(i + 1) % 30] as string)))).toBeLessThan(40); // gentle steps
 		}
 	});
 

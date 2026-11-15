@@ -50,6 +50,8 @@ export interface Options {
 	persist?: boolean;
 	/** Extra `--tools` entries (`+grep`, `+find`, `+ls` enable pi's built-in tools that are off by default). */
 	tools?: string[];
+	/** Runs in the project dir after the fixture files exist and before pi starts (e.g. `git init`). */
+	setup?: (cwd: string) => void;
 	/** Load pi-lumen as an installed package (`settings.packages`, resources from its manifest) instead of `-e`. */
 	asPackage?: boolean;
 	/** Extra extension files loaded besides pi-lumen. */
@@ -75,6 +77,7 @@ export async function startPi(opts: Options): Promise<Session> {
 		mkdirSync(join(p, ".."), { recursive: true });
 		writeFileSync(p, content);
 	}
+	opts.setup?.(cwd);
 	const mock = await startMock(opts.responder);
 	writeFileSync(
 		join(agentDir, "models.json"),

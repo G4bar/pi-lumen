@@ -24,8 +24,8 @@ back in with `inlineStatusKeys`.
 
 | Segment | Content |
 |---|---|
-| model | model name `(provider)` |
-| think | level, colored like pi's thinking border; `high`/`xhigh`/`max` cycle through the logo colors (coral, blue, yellow) |
+| model | `(provider) model name` |
+| think | level, colored like pi's thinking border; `high`/`xhigh`/`max` use a gradient through the logo colors |
 | context | `84k/200k 42%`, `?/200k` right after compaction; yellow > 70 %, red > 90 % |
 | spend | API key → `$0.42`; subscription login → `5h 37% · 7d 12%` quota when available, otherwise reported cost or `sub` |
 | cache · tps | `CH 81%` (hit rate of the latest request on the active branch; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
@@ -33,8 +33,9 @@ back in with `inlineStatusKeys`.
 | git | branch, then `*unstaged +staged ?untracked` |
 | ext | statuses of other extensions, only for the keys listed in `inlineStatusKeys` (none by default) |
 
-If the line does not fit, segments are dropped in this order: ext → git counters → dir → cache/tps →
-spend → git branch. model, think and context always stay; the model name is truncated last.
+If the line does not fit, segments are dropped in this order: ext → dir → cache/tps → spend → git counters → git
+branch. model, think and context always stay, and so does the git branch with its counters as long as possible (the model
+name is truncated last).
 
 **TPS** is `output_tokens / seconds(first content → message end)`. While streaming it is estimated as
 chars/4; at message end it uses the exact `usage.output`. It is *not* server speed, and it does not
@@ -57,11 +58,11 @@ Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no AP
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
-**Colors.** Kept low on purpose. Only the model and its provider, `Opus 4 (anthropic)`, are colored (the theme's `accent`).
+**Colors.** Kept low on purpose. Only the model and its provider, `(anthropic) Opus 4`, are colored (the theme's `accent`).
 Context, spend/quota, `tok/s` and cache are plain (dim/muted) and only turn warning/error when it matters: context
 above 70/90 %, quota from 75/90 %, cache hit rate below 70/30 %. The directory is plain and git keeps its theme
 colors (green: clean, yellow: changes). The thinking level and the working spinner use the prompt box border color of the level
-(the theme's `thinkingOff` … `thinkingMedium` tokens); from `high` up (`high`, `xhigh`, `max`) they cycle through pi's logo colors: coral, blue, yellow.
+(the theme's `thinkingOff` … `thinkingMedium` tokens); from `high` up (`high`, `xhigh`, `max`) they use a smooth gradient through pi's logo colors (coral, blue, yellow): across the letters in the label, and drifting slowly over three braille turns in the spinner, so it does not flicker.
 
 ## Themes
 
@@ -72,7 +73,7 @@ The package ships two themes built on pi's logo colors, coral `#E48A7A`, blue `#
 | `pi-dark` | Catppuccin Frappé backgrounds | `accent` coral, `border` blue, `mdHeading`/`warning`/`thinkingMedium` yellow |
 | `pi-light` | Catppuccin Latte backgrounds | same hues, darkened until text keeps its contrast |
 
-The thinking scale of the prompt box border (the `think:` label and spinner follow it up to `medium`, then cycle coral, blue, yellow) goes from grey (`off`, `minimal`) through blue (`low`) and
+The thinking scale of the prompt box border (the `think:` label and spinner follow it up to `medium`, then turn into a logo-color gradient) goes from grey (`off`, `minimal`) through blue (`low`) and
 yellow (`medium`) to coral (`high`) and two hotter corals (`xhigh`, `max`). They come with the package (`pi.themes` in `package.json`), so `pi install` / `pi update` puts them in `/settings` → Theme and they can be
 selected at startup. Select one with `/settings`, or follow the
 terminal with `"theme": "pi-light/pi-dark"`. Success, error, diffs and git state keep ordinary green and red so the logo colors
