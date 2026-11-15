@@ -64,7 +64,7 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 	it("below the prompt by default: model, thinking level, context, cost, dir", async () => {
 		const s = await h.start({ responder: respond([]) });
 		const last = s.screen().split("\n").at(-1) ?? "";
-		expect(last).toMatch(/^mock · Mock Model │ think:medium │ 0\/200k 0% │ \$0\.00 │ project$/);
+		expect(last).toMatch(/^Mock Model \(mock\) │ think:medium │ 0\/200k 0% │ \$0\.00 │ project$/);
 	});
 
 	it("updates after a reply: tokens used, throughput", async () => {
@@ -79,7 +79,7 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 	it("placement above puts it over the prompt box", async () => {
 		const s = await h.start({ responder: respond([]), settings: { lumen: { quota: { enabled: false }, icons: "none", placement: "above" } } });
 		const lines = s.screen().split("\n");
-		const status = lines.findIndex((l) => l.startsWith("mock · Mock Model"));
+		const status = lines.findIndex((l) => l.startsWith("Mock Model (mock)"));
 		const top = lines.findIndex((l) => BORDER.test(l));
 		expect(status).toBeGreaterThan(-1);
 		expect(status).toBeLessThan(top);
@@ -93,7 +93,7 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 		s.send("/lumen placement above");
 		await s.waitFor("placement above");
 		const lines = s.screen().split("\n");
-		expect(lines.findIndex((l) => l.startsWith("mock · Mock Model"))).toBeLessThan(lines.findIndex((l) => BORDER.test(l)));
+		expect(lines.findIndex((l) => l.startsWith("Mock Model (mock)"))).toBeLessThan(lines.findIndex((l) => BORDER.test(l)));
 	});
 
 	it("/lumen box: invalid value shows usage with the current one; valid ones apply and are reported", async () => {
@@ -108,7 +108,7 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 		const s = await h.start({ responder: respond([]) });
 		s.send("/lumen off");
 		await s.waitFor("pi-lumen off");
-		await s.waitGone(/^mock · Mock Model │/m);
+		await s.waitGone(/^Mock Model \(mock\) │/m);
 		expect(s.screen()).not.toContain("❯");
 	});
 });
@@ -199,6 +199,12 @@ describe.skipIf(!hasTmux || !hasPi)("start screen", () => {
 		await s.waitFor("hello");
 		await s.settle();
 		expect(s.history()).toContain("Welcome back!");
+	});
+
+	it("quietStartup \"header\" (no [Context]/[Skills]/[Extensions] listing) still shows it", async () => {
+		const s = await h.start({ responder: respond([]), settings: { quietStartup: "header" } });
+		await s.waitFor(/Welcome back!/);
+		expect(s.screen()).not.toMatch(/\[(Context|Skills|Extensions)\]/);
 	});
 
 	it("welcome: false keeps pi's own header", async () => {

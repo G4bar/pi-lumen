@@ -24,7 +24,7 @@ back in with `inlineStatusKeys`.
 
 | Segment | Content |
 |---|---|
-| model | provider · model name |
+| model | model name `(provider)` |
 | think | level, colored like pi's thinking border; `high`/`xhigh`/`max` use a rainbow |
 | context | `84k/200k 42%`, `?/200k` right after compaction; yellow > 70 %, red > 90 % |
 | spend | API key → `$0.42`; subscription login → `5h 37% · 7d 12%` quota when available, otherwise reported cost or `sub` |
@@ -57,9 +57,10 @@ Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no AP
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
-**Colors.** Parts of the line that carry no signal use pi's logo palette (fixed across themes): model and directory
-coral, context and `tok/s` blue, spend and quota yellow. Colors that mean something still come from the theme:
-thinking level, context above 70/90 %, quota from 75/90 %, cache hit-rate bands, git state (branch, `*`, `+`, `?`).
+**Colors.** Only identity parts use pi's logo palette (fixed across themes): the model name coral and the directory blue;
+the provider follows the model as a dim `(provider)`. Metrics are never painted in the palette, because its yellow and
+coral read as warning and error: context, spend/quota, `tok/s`, cache and git keep their theme colors (dim/muted, then
+warning/error at 70/90 % context and 75/90 % quota, the cache bands, git state), and the thinking level keeps its own.
 
 Tool rows are not a command, but they have one key: `ctrl+o` (pi's `app.tools.expand`) expands the tool under the cursor
 and `ctrl+o` again collapses it. The hint is on the result row when there is something to show.
@@ -69,7 +70,7 @@ and `ctrl+o` again collapses it. The hint is on the result row when there is som
 A boxed, persistent header replaces pi's own (layout as in pi-powerline-footer): `Welcome back!`, pi's **real**
 logo (the coral/blue/yellow pixel logo of pi's own header, scaled up; not a block-letter approximation), model and
 provider on the left; `Tips`, `Loaded` (context files, skills, prompt templates) and `Recent sessions` on the right,
-with headings and numbers in the logo's three colors. It is not an overlay and nothing dismisses it: it scrolls with
+with headings and numbers in the logo's three colors. The start screen already shows what pi lists at startup (`[Context]`, `[Skills]`, `[Extensions]`); an extension cannot hide that listing, so set `"quietStartup": "header"` in `settings.json` to drop it (pi keeps its warnings and errors). It is not an overlay and nothing dismisses it: it scrolls with
 the transcript like pi's header. Below 44 columns only the small logo is drawn. `/lumen off` gives pi's header back;
 `welcome: false` in the `lumen` settings keeps pi's header and leaves the rest of pi-lumen on.
 

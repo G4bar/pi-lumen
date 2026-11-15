@@ -117,7 +117,7 @@ export function renderWelcome(data: WelcomeData, theme: WelcomeTheme, width: num
 	const mode = theme.getColorMode();
 	const paint = (color: RgbColorValue, text: string) => paintFg(color, text, mode);
 	const dim = (text: string) => theme.fg("dim", text);
-	const wordmark = `${theme.bold(paint(CORAL, "P"))}${theme.bold(paint(YELLOW, "i"))}${data.version ? dim(` v${data.version}`) : ""}`;
+	const wordmark = dim(`Pi${data.version ? ` v${data.version}` : ""}`); // one plain tone: the logo carries the color
 
 	if (width < MIN_LAYOUT) {
 		const [top = "", bottom = ""] = piLogo(mode, 1);

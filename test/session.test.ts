@@ -57,7 +57,7 @@ describe("LumenSession", () => {
 		expect(opts.placement).toBe("belowEditor");
 		const comp = factory({ requestRender() {} });
 		const [line] = comp.render(120);
-		expect(line).toContain("openrouter · Model One");
+		expect((line ?? "").replace(/\x1b\[[0-9;]*m/g, "")).toContain("Model One (openrouter)");
 		expect(line).toContain("think:medium");
 		expect(line).toContain("$0.50");
 		s.dispose();

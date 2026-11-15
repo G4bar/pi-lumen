@@ -175,7 +175,7 @@ export async function startPi(opts: Options): Promise<Session> {
 		},
 	};
 	try {
-		await session.waitFor(/mock ·/, 30_000);
+		await session.waitFor(/think:/, 30_000);
 	} catch (e) {
 		await session.stop();
 		throw e;
