@@ -42,15 +42,22 @@ match the `tok/s` of pi-stamp, which starts at message creation and therefore in
 
 ### Commands
 
-- `/status` – every status published by other extensions (`pi-sync`, `pi-lens · LSP`, unknown keys as-is),
-  plus the loaded extensions with their command/tool counts. A snapshot shown as a notification; it needs the
-  pi-lumen footer (with `/lumen off` pi's own footer shows the statuses). Richer details stay in each
-  extension's own command (`/lens`, `/sync`).
-- `/lumen` – show state
-- `/lumen placement above|below|toggle`
-- `/lumen on` / `/lumen off`
+| Command | What it does |
+|---|---|
+| `/lumen` | Shows the current state as a notification: `pi-lumen on · placement below · quota on · tools on · stamp on · provider/model`. Changes nothing. |
+| `/lumen placement above\|below` | Moves the status line above or below the input box. |
+| `/lumen placement toggle` | Switches to the other position. |
+| `/lumen on` / `/lumen off` | `off` hands the footer, working indicator and thinking label back to pi (the status line, thinking colors and indicators go away); `on` installs them again. It applies at once, no restart. |
+| `/status` | Every status published by other extensions (`pi-sync`, `pi-lens · LSP`, unknown keys as-is), plus the loaded extensions with their command/tool counts. A snapshot shown as a notification; it needs the pi-lumen footer (with `/lumen off` pi's own footer shows the statuses). Richer details stay in each extension's own command (`/lens`, `/sync`). |
 
-Placement and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no API to write `settings.json`).
+Each `/lumen` subcommand also prints the new state. A wrong argument shows the usage line and changes nothing.
+
+Placement and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no API to write `settings.json`), so they survive restarts.
+They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
+`settings.json` only, see [Configuration](#configuration); there is no command for it.
+
+Tool rows are not a command, but they have one key: `ctrl+o` (pi's `app.tools.expand`) expands the tool under the cursor
+and `ctrl+o` again collapses it. The hint is on the result row when there is something to show.
 
 ## Compact tools
 
@@ -77,7 +84,7 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
 
 - **Changes are always visible.** `edit` shows the diff and `write` the written content, syntax-highlighted
   (Shiki, like `read`) with a right-aligned line-number gutter: `N │` context, `N -` removed (red), `N +` added (green),
-  `⋯` for skipped context. All lumen tool rows (`read`, `bash`, `edit`, `write`) have no tool box behind them (pi's green/grey box hid the tints and showed holes behind `…`), so they sit on the terminal background; the status dot and `exit N` carry success/error. Removed/added `edit` rows get a background (the theme's diff colors mixed into a grey of the tool box's brightness, to the edge of the terminal) and the words that changed a stronger one; truecolor and a theme with
+  `⋯` for skipped context. Every tool row sits in a tool box that lumen paints itself (`tools.box`, see below): neutral grey instead of pi's green success panel (which hid the tints), red on errors; the status dot and `exit N` carry success/error. Removed/added `edit` rows get a background (the theme's diff colors mixed into the tool box's neutral grey, to the edge of the terminal) and the words that changed a stronger one; truecolor and a theme with
   `toolSuccessBg` only, otherwise the foreground-only look. Right under the result row, up to `tools.changeLines` (12) rows; `ctrl+o` shows up to `tools.previewLines` (40).
   The expand hint only appears when something is hidden.
 - **Hint on the result row** (`ctrl+o to expand`, from pi's own keybinding), so a collapsed tool is two lines.
@@ -136,11 +143,13 @@ Optional, key `lumen` in `settings.json`:
     "git": { "statusTtlMs": 2000 },
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
-    "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": false, "timeGapSec": 5, "shiki": true, "theme": "auto" },
+    "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": false, "timeGapSec": 5, "shiki": true, "theme": "auto", "box": "neutral" },
     "inlineStatusKeys": []
   }
 }
 ```
+
+`tools.box` is the tool-box background: `neutral` (default; pi's grey pending panel, red panel on errors), `theme` (pi's own panels: green on success) or `none` (flat rows on the terminal background). A theme without tool panels draws no box.
 
 `tools.enabled` is read from the global `settings.json` only (tools are registered at load, before pi's trust
 decision about the project is known); every other key also honours the project `.pi/settings.json` as merged by pi.

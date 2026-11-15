@@ -1,7 +1,7 @@
 import { createReadToolDefinition, type ExtensionAPI, type ReadToolDetails, type Theme } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
 import { rowAt } from "./at.ts";
-import { callLine, expandHint, framed, plural, resultLine, textOf } from "./format.ts";
+import { callLine, callOf, expandHint, framed, plural, resultLine, resultOf } from "./format.ts";
 import { builtinToolOptions } from "./options.ts";
 import { paintLines, type ShikiPaint, shikiPainter, shikiThemeName } from "./highlight.ts";
 
@@ -43,14 +43,14 @@ export function registerRead(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 		renderCall(args, theme, ctx) {
 			let range = "";
 			if (args.offset || args.limit) range = ` :${args.offset ?? 1}${args.limit ? `+${args.limit}` : ""}`;
-			return textOf(ctx, callLine(theme, ctx, "Read", `${args.path}${range}`), ctx.expanded);
+			return callOf(theme, ctx, callLine(theme, ctx, "Read", `${args.path}${range}`), ctx.expanded);
 		},
 		renderResult(result, { expanded, isPartial }, theme, ctx) {
-			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", "reading…")));
+			if (isPartial) return resultOf(theme, ctx, resultLine(theme, theme.fg("muted", "reading…")));
 			const at = rowAt(getCfg, result.details);
-			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", textOutput(result.content).split("\n")[0] ?? "error"), ctx.durationMs, at));
+			if (ctx.isError) return resultOf(theme, ctx, resultLine(theme, theme.fg("error", textOutput(result.content).split("\n")[0] ?? "error"), ctx.durationMs, at));
 			// The image itself is drawn by pi below this row; only the summary is ours.
-			if (result.content.some((c) => c.type === "image")) return textOf(ctx, resultLine(theme, theme.fg("success", "image"), ctx.durationMs, at));
+			if (result.content.some((c) => c.type === "image")) return resultOf(theme, ctx, resultLine(theme, theme.fg("success", "image"), ctx.durationMs, at));
 			const { lines, notice } = splitRead(textOutput(result.content));
 			const details = result.details as ReadToolDetails | undefined;
 			let summary = theme.fg("success", plural(lines.length, "line"));
@@ -63,7 +63,7 @@ export function registerRead(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 				const paint = shikiPainter(ctx, args?.path ?? "", shikiThemeName(shikiTheme, theme), shiki);
 				body = codeBody(theme, lines, args?.path ?? "", args?.offset ?? 1, max, notice, paint);
 			}
-			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + hint + body);
+			return resultOf(theme, ctx, resultLine(theme, summary, ctx.durationMs, at) + hint + body);
 		},
 	});
 }

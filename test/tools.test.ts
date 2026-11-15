@@ -5,7 +5,7 @@ import { Box, visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 import { loadBootSettings } from "../src/config.ts";
 import { RowThinking } from "../src/thinking-label.ts";
-import { Block, textOf, changeBody, fillRow, framed, framedLines, prefixed } from "../src/tools/format.ts";
+import { Block, boxBg, callOf, changeBody, fillRow, framed, framedLines, paintRows, prefixed, resultOf, textOf } from "../src/tools/format.ts";
 import { outputLines } from "../src/tools/bash.ts";
 import { builtinToolOptions } from "../src/tools/options.ts";
 import { bgTints, changedSpans, diffRows, parseDiff, type Tints, tintLine, writeRows } from "../src/tools/changes.ts";
@@ -234,11 +234,77 @@ describe("flat rows (renderShell: self)", () => {
 		expect(rows[0]?.startsWith("  x")).toBe(true);
 		expect(visibleWidth(rows[0] ?? "")).toBeLessThanOrEqual(18);
 	});
-	it("a changed row returns to the default background (not a box color) after its tint", () => {
+	it("without a box, a changed row returns to the default background after its tint", () => {
 		const t = { fg: (_c: string, s: string) => s, bold: (s: string) => s, getBgAnsi: () => "\x1b[48;2;40;40;40m", getFgAnsi: () => "\x1b[38;2;100;200;100m" } as never;
-		expect(bgTints(t, true)?.box).toBe("\x1b[49m");
+		expect(bgTints(t)?.box).toBe("\x1b[49m");
 		const { rows } = diffRows(t, ["-1 a", "+1 b"].join("\n"), "x.txt", 9);
 		expect(new Block(`  ${rows[0]}`).render(20)[0]?.endsWith("\x1b[49m")).toBe(true);
+	});
+});
+
+describe("our own tool box (renderShell: self)", () => {
+	const BG = "\x1b[48;2;30;30;30m";
+	const cols = (row: string): (string | undefined)[] => {
+		const out: (string | undefined)[] = [];
+		let bg: string | undefined;
+		for (let i = 0; i < row.length; ) {
+			const m = /^\x1b\[([0-9;]*)m/.exec(row.slice(i));
+			if (m) {
+				const p = m[1] ?? "";
+				bg = p === "" || p === "0" || p === "49" ? undefined : p.startsWith("48;2;") ? p : bg;
+				i += m[0].length;
+			} else {
+				out.push(bg);
+				i++;
+			}
+		}
+		return out;
+	};
+	it("paints the background over the whole width: margins, content and the space up to the edge", () => {
+		const [row] = paintRows(["abc"], 12, 1, { bg: BG, top: false, bottom: false });
+		expect(visibleWidth(row ?? "")).toBe(12);
+		expect(cols(row ?? "").every((b) => b === "48;2;30;30;30")).toBe(true);
+	});
+	it("top/bottom add blank painted rows; no rows draw nothing", () => {
+		const rows = paintRows(["abc"], 8, 1, { bg: BG, top: true, bottom: true });
+		expect(rows.map((r) => visibleWidth(r))).toEqual([8, 8, 8]);
+		expect(rows[0]?.replace(/\x1b\[[0-9;]*m/g, "").trim()).toBe("");
+		expect(paintRows([], 8, 1, { bg: BG, top: true, bottom: true })).toEqual([]);
+	});
+	it("resets in the content (and a truncated `…`) fall back to the box background, never the terminal's", () => {
+		const rows = paintRows(["\x1b[31mred\x1b[0m plain \x1b[49m tail"], 30, 1, { bg: BG, top: false, bottom: false });
+		expect(cols(rows[0] ?? "").every((b) => b === "48;2;30;30;30")).toBe(true);
+		const cut = new Block("a ".repeat(40), false, 1, { bg: BG, top: false, bottom: false }).render(20)[0] ?? "";
+		expect(cut).toContain("…");
+		expect(cols(cut).every((b) => b === "48;2;30;30;30")).toBe(true);
+	});
+	it("a changed row keeps its tint inside the box and returns to the box color for the margin", () => {
+		const tint = "\x1b[48;2;80;40;40m";
+		const row = new Block(`  ${fillRow(`${tint}1 - x`, tint, BG)}`, false, 1, { bg: BG, top: false, bottom: false }).render(20)[0] ?? "";
+		const c = cols(row);
+		expect(c).toHaveLength(20);
+		expect(c[1]).toBe("48;2;30;30;30");
+		expect(c[5]).toBe("48;2;80;40;40");
+		expect(c[18]).toBe("48;2;80;40;40");
+		expect(c[19]).toBe("48;2;30;30;30");
+	});
+	it("call rows open the box (blank row on top), result rows close it", () => {
+		const theme = { getBgAnsi: (t: string) => (t === "toolPendingBg" ? "\x1b[48;2;1;1;1m" : t === "toolErrorBg" ? "\x1b[48;2;9;0;0m" : "\x1b[48;2;0;9;0m") } as never;
+		const ctx = { lastComponent: undefined, isPartial: false, isError: false };
+		expect(callOf(theme, ctx, "head").render(10)).toHaveLength(2);
+		expect(resultOf(theme, ctx, "tail").render(10)).toHaveLength(2);
+		expect(callOf(theme, ctx, "head").render(10)[0]).toContain("48;2;1;1;1"); // neutral by default
+	});
+	it("boxBg: neutral / theme / none, error always red, themes without panels draw no box", () => {
+		const theme = (pending: string) => ({ getBgAnsi: (t: string) => (t === "toolPendingBg" ? pending : t === "toolErrorBg" ? "\x1b[48;2;9;0;0m" : "\x1b[48;2;0;9;0m") }) as never;
+		const t = theme("\x1b[48;2;1;1;1m");
+		expect(boxBg(t, {}, "neutral")).toBe("\x1b[48;2;1;1;1m");
+		expect(boxBg(t, {}, "theme")).toBe("\x1b[48;2;0;9;0m");
+		expect(boxBg(t, { isPartial: true }, "theme")).toBe("\x1b[48;2;1;1;1m");
+		expect(boxBg(t, { isError: true }, "neutral")).toBe("\x1b[48;2;9;0;0m");
+		expect(boxBg(t, {}, "none")).toBeUndefined();
+		expect(boxBg(theme("\x1b[49m"), {}, "neutral")).toBeUndefined();
+		expect(boxBg({} as never, {}, "neutral")).toBeUndefined();
 	});
 });
 
@@ -368,7 +434,8 @@ describe("bgTints / diffRows backgrounds", () => {
 	const dark = mk("\x1b[48;2;40;40;40m", "\x1b[38;2;100;200;100m", "\x1b[38;2;200;100;100m");
 	it("mixes the added/removed foreground into the box's grey: lightly for the row, more for changed words", () => {
 		const t = bgTints(dark) as Tints;
-		expect(t.box).toBe("\x1b[48;2;40;40;40m");
+		expect(t.box).toBe("\x1b[49m");
+		expect(bgTints(dark, "\x1b[48;2;60;60;60m")?.box).toBe("\x1b[48;2;60;60;60m"); // the real box background wins
 		expect(t.add.base).toBe("\x1b[48;2;55;80;55m"); // 40 + (100-40)*0.25 = 55, 40 + (200-40)*0.25 = 80
 		expect(t.add.strong).toBe("\x1b[48;2;70;120;70m"); // 40 + 60*0.5, 40 + 160*0.5
 		expect(t.del.base).toBe("\x1b[48;2;80;55;55m");

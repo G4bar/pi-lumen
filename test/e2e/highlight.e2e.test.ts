@@ -9,8 +9,8 @@ const TRUECOLOR = /38;2;\d+;\d+;\d+/g;
 const fgColors = (line: string) => new Set(line.match(TRUECOLOR));
 const BG = /48;2;(\d+;\d+;\d+)/g;
 const bgColors = (line: string) => [...line.matchAll(BG)].map((m) => m[1] ?? "");
-/** pi's own `toolSuccessBg` behind a successful tool row, per bundled theme (tmux only reports background changes). */
-const BOX = { dark: "37;65;49", light: "222;233;225" };
+/** The neutral tool box (pi's `toolPendingBg`, `tools.box: "neutral"`) behind every tool row, per bundled theme (tmux only reports background changes). */
+const BOX = { dark: "52;56;58", light: "232;233;235" };
 /** Backgrounds on a row besides the tool box's: the diff tints. */
 const tints = (line: string, box = BOX.dark) => [...new Set(bgColors(line))].filter((c) => c !== box);
 
@@ -187,8 +187,9 @@ describe.skipIf(!hasTmux || !hasPi)("edit: row backgrounds and changed words", (
 		const [base] = tints(added);
 		expect(strip(added).length).toBeGreaterThanOrEqual(118); // a one-column margin on each side
 		expect(strip(added)).toMatch(/;\s{20,}$/); // padding after the last character…
-		expect(bgColors(added).at(-1)).toBe(base); // …under the row background, not the strong one
-		expect(added).not.toContain(`48;2;${BOX.dark}`); // edit/write rows sit on the terminal background, not on pi's tool box
+		const bgs = bgColors(added);
+		expect(bgs.at(-2)).toBe(base); // …under the row background, not the strong one
+		expect(bgs.at(-1)).toBe(BOX.dark); // and the box's right margin is back to the (neutral) box color, no hole
 	});
 
 	it("light theme: the tint is a darker green/red on the pale box, the text is still readable", async () => {
@@ -217,7 +218,6 @@ describe.skipIf(!hasTmux || !hasPi)("edit: row backgrounds and changed words", (
 		const s = await run(h, call("write", { path: "w.ts", content: src }), {}, dark);
 		const l = await waitHighlighted(s, "export function greet");
 		expect(tints(l)).toEqual([]); // box color only (or nothing)
-		expect(strip(l)).not.toMatch(/\s{10,}$/);
 	});
 
 	it("tools.shiki=false still gets the backgrounds and word marks (they do not depend on the highlighter)", async () => {

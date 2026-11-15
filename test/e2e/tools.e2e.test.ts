@@ -6,6 +6,9 @@ import type { Step, ToolCall } from "./mock-server.ts";
 
 const files = { "a.txt": numbered(5), "num.txt": numbered(100), "big.txt": numbered(3000), "pixel.png": png, "code.ts": "const a = 1;\nconst b = 2;\n" };
 const call = (name: string, args: Record<string, unknown>): Step[] => [{ toolCalls: [{ name, args }] }, { text: "fine" }];
+const darkWith = (tools: Record<string, unknown> = {}) => ({ theme: "dark", lumen: { quota: { enabled: false }, tools } });
+const NEUTRAL = "\x1b[48;2;52;56;58m"; // the dark theme's toolPendingBg: the default tool box
+const SUCCESS = "\x1b[48;2;37;65;49m"; // the dark theme's toolSuccessBg (`tools.box: "theme"`)
 const responder = (steps: Step[]) => (i: number) => steps[i] ?? { text: "fine" };
 
 /** Run one prompt to completion and return the settled screen. */
@@ -352,7 +355,7 @@ describe.skipIf(!hasTmux || !hasPi)("foreign tools look like ours", () => {
 	const h = useSession();
 	/** Rows of pi's built-in grep/find/ls (off by default: `--tools +grep,+find,+ls`). */
 	const builtin = async (steps: Step[]) => {
-		const s = await h.start({ responder: responder(steps), files, tools: ["+grep", "+find", "+ls"] });
+		const s = await h.start({ responder: responder(steps), files, tools: ["+grep", "+find", "+ls"], settings: darkWith() });
 		s.send("go");
 		await s.waitFor("fine", 30_000);
 		await s.settle();
@@ -364,13 +367,12 @@ describe.skipIf(!hasTmux || !hasPi)("foreign tools look like ours", () => {
 		{ name: "ls", args: { path: "." }, header: /● Ls \(\.\)/, summary: /└ [2-9] lines/ },
 	];
 	for (const { name, args, header, summary } of cases) {
-		it(`built-in ${name}: compact flat rows (● header, └ summary), no tool box background`, async () => {
+		it(`built-in ${name}: compact rows (● header, └ summary) in the neutral tool box`, async () => {
 			const s = await builtin(call(name, args));
 			const screen = s.screen();
 			expect(screen).toMatch(header);
 			expect(screen).toMatch(summary);
-			expect(ansiLine(s, "● ")).not.toMatch(/\x1b\[48;/);
-			expect(ansiLine(s, "└")).not.toMatch(/\x1b\[48;/);
+			expect(ansiLine(s, "● ")).toContain(NEUTRAL);
 		});
 	}
 	it("ctrl+o expands the results of a built-in tool between rules", async () => {
@@ -380,15 +382,21 @@ describe.skipIf(!hasTmux || !hasPi)("foreign tools look like ours", () => {
 		expect(s.screen()).toMatch(/─\n\s+a\.txt\n\s+big\.txt\n\s+num\.txt\n\s+─/);
 	});
 	const EXT = join(import.meta.dirname, "fixtures/plain-tool-ext.ts");
-	it("a tool without renderers gets the compact flat rows and no tool box background", async () => {
-		const s = await h.start({ responder: responder(call("plain_demo", { query: "hello" })), extensions: [EXT] });
+	const plain = async (settings: Record<string, unknown>) => {
+		const s = await h.start({ responder: responder(call("plain_demo", { query: "hello" })), extensions: [EXT], settings });
 		s.send("go");
 		await s.waitFor("fine", 30_000);
 		await s.settle();
-		const screen = s.screen();
-		expect(screen).toMatch(/● Plain_demo \(hello\)/);
-		expect(screen).toMatch(/└ 3 lines/);
-		expect(ansiLine(s, "Plain_demo")).not.toMatch(/\x1b\[48;/);
-		expect(ansiLine(s, "3 lines")).not.toMatch(/\x1b\[48;/);
+		return s;
+	};
+	it("a tool without renderers gets the compact rows in the neutral box", async () => {
+		const s = await plain(darkWith());
+		expect(s.screen()).toMatch(/● Plain_demo \(hello\)/);
+		expect(s.screen()).toMatch(/└ 3 lines/);
+		expect(ansiLine(s, "Plain_demo")).toContain(NEUTRAL);
+	});
+	it("tools.box: theme uses pi's success panel, none draws no box", async () => {
+		expect(ansiLine(await plain(darkWith({ box: "theme" })), "Plain_demo")).toContain(SUCCESS);
+		expect(ansiLine(await plain(darkWith({ box: "none" })), "Plain_demo")).not.toMatch(/\x1b\[48;/);
 	});
 });

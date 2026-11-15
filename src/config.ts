@@ -12,7 +12,7 @@ export interface LumenConfig {
 	git: { statusTtlMs: number };
 	quota: { enabled: boolean; ttlMs: number };
 	stamp: { enabled: boolean; duration: boolean };
-	tools: { enabled: boolean; previewLines: number; changeLines: number; time: boolean; timeGapSec: number; shiki: boolean; theme: string };
+	tools: { enabled: boolean; previewLines: number; changeLines: number; time: boolean; timeGapSec: number; shiki: boolean; theme: string; box: "neutral" | "theme" | "none" };
 	/** Status keys of other extensions still drawn in the status line; everything else is only in /status. */
 	inlineStatusKeys: string[];
 }
@@ -26,7 +26,7 @@ export const DEFAULTS: LumenConfig = {
 	git: { statusTtlMs: 2000 },
 	quota: { enabled: true, ttlMs: 90_000 },
 	stamp: { enabled: true, duration: false },
-	tools: { enabled: true, previewLines: 40, changeLines: 12, time: false, timeGapSec: 5, shiki: true, theme: "auto" },
+	tools: { enabled: true, previewLines: 40, changeLines: 12, time: false, timeGapSec: 5, shiki: true, theme: "auto", box: "neutral" },
 	inlineStatusKeys: [],
 };
 
@@ -50,6 +50,7 @@ export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): 
 	const cfg = merge(merge(DEFAULTS, settingsLumen), stateOverrides);
 	if (cfg.placement !== "above" && cfg.placement !== "below") cfg.placement = DEFAULTS.placement;
 	if (cfg.icons !== "none" && cfg.icons !== "ascii") cfg.icons = DEFAULTS.icons;
+	if (cfg.tools.box !== "neutral" && cfg.tools.box !== "theme" && cfg.tools.box !== "none") cfg.tools.box = DEFAULTS.tools.box;
 	cfg.tools.previewLines = Math.max(0, Math.floor(cfg.tools.previewLines));
 	cfg.tools.changeLines = Math.max(0, Math.floor(cfg.tools.changeLines));
 	cfg.tools.timeGapSec = Math.max(0, cfg.tools.timeGapSec);

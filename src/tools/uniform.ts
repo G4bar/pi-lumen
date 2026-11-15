@@ -12,7 +12,7 @@ import type { ExtensionAPI, ToolRenderers } from "@earendil-works/pi-coding-agen
 import type { Component } from "@earendil-works/pi-tui";
 import type { LumenConfig } from "../config.ts";
 import { rowAt } from "./at.ts";
-import { callLine, expandHint, framedLines, oneLine, plural, resultLine, textOf } from "./format.ts";
+import { type Box, boxBg, callLine, callOf, expandHint, framedLines, oneLine, paintRows, plural, resultLine, resultOf } from "./format.ts";
 
 /** Tools with lumen's own renderers (registered separately). */
 const OWN: ReadonlySet<string> = new Set(["read", "bash", "edit", "write"]);
@@ -21,33 +21,41 @@ const SUMMARISED: ReadonlySet<string> = new Set(["grep", "find", "ls"]);
 /** Argument names that best describe a call, in order of preference. */
 const MAIN_ARGS = ["path", "pattern", "command", "query", "url", "file", "name"];
 
-/** Horizontal margin around a foreign component (what pi's box padding or `outputPad` would give). */
+/** A foreign component inside our margins and tool box (what pi's own box would have drawn around it). */
 export class Padded implements Component {
 	constructor(
 		public inner: Component,
 		public pad: number,
+		public box?: Box,
 	) {}
 	invalidate(): void {
 		this.inner.invalidate?.();
 	}
 	render(width: number): string[] {
-		const margin = " ".repeat(this.pad);
-		return this.inner.render(Math.max(1, width - 2 * this.pad)).map((r) => (margin ? `${margin}${r}` : r));
+		return paintRows(this.inner.render(Math.max(1, width - 2 * this.pad)), width, this.pad, this.box);
 	}
 }
 
-type AnyCtx = { lastComponent: unknown; outputPad?: number };
+type AnyCtx = { lastComponent: unknown; outputPad?: number; isPartial?: boolean; isError?: boolean };
+type ThemeLike = Parameters<typeof boxBg>[0];
 
-/** Run a renderer so that it sees (and reuses) its own component, which we keep inside a reusable `Padded`. */
-function padded<A extends unknown[], C extends AnyCtx>(render: (...a: [...A, C]) => Component): (...a: [...A, C]) => Component {
+/**
+ * Run a renderer so that it sees (and reuses) its own component, which we keep inside a reusable `Padded`.
+ * `part` says whether the rows open the box (call) or close it (result); the theme is the argument before `ctx`.
+ */
+function padded<A extends unknown[], C extends AnyCtx>(render: (...a: [...A, C]) => Component, part: "call" | "result"): (...a: [...A, C]) => Component {
 	return (...args) => {
 		const ctx = args.at(-1) as C;
+		const theme = args.at(-2) as ThemeLike;
 		const head = args.slice(0, -1) as A;
 		const prev = ctx.lastComponent instanceof Padded ? ctx.lastComponent : undefined;
 		const inner = render(...head, { ...ctx, lastComponent: prev?.inner } as C);
-		if (!prev) return new Padded(inner, ctx.outputPad ?? 1);
+		const bg = boxBg(theme, ctx);
+		const box = bg ? { bg, top: part === "call", bottom: part === "result" } : undefined;
+		if (!prev) return new Padded(inner, ctx.outputPad ?? 1, box);
 		prev.inner = inner;
 		prev.pad = ctx.outputPad ?? 1;
+		prev.box = box;
 		return prev;
 	};
 }
@@ -81,18 +89,18 @@ export function displayName(tool: string): string {
 function genericRenderers(name: string, getCfg: () => LumenConfig): ToolRenderers {
 	return {
 		renderShell: "self",
-		renderCall: (args, theme, ctx) => textOf(ctx, callLine(theme, ctx, displayName(name), describeArgs(args)), ctx.expanded),
+		renderCall: (args, theme, ctx) => callOf(theme, ctx, callLine(theme, ctx, displayName(name), describeArgs(args)), ctx.expanded),
 		renderResult: (result, { expanded, isPartial }, theme, ctx) => {
 			const text = textOutput(result.content).trim();
 			const lines = text ? text.split("\n") : [];
-			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", `running · ${plural(lines.length, "line")}`)));
+			if (isPartial) return resultOf(theme, ctx, resultLine(theme, theme.fg("muted", `running · ${plural(lines.length, "line")}`)));
 			const at = rowAt(getCfg, result.details);
-			if (ctx.isError) return textOf(ctx, resultLine(theme, theme.fg("error", oneLine(lines[0] ?? "error", 100)), ctx.durationMs, at));
+			if (ctx.isError) return resultOf(theme, ctx, resultLine(theme, theme.fg("error", oneLine(lines[0] ?? "error", 100)), ctx.durationMs, at));
 			const empty = result.content.some((c) => c.type === "image") ? "image" : "done";
 			const summary = theme.fg("success", lines.length ? plural(lines.length, "line") : empty);
 			const hint = lines.length > 1 || expanded ? expandHint(theme, ctx, expanded) : "";
 			const body = expanded ? framedLines(theme, lines, getCfg().tools.previewLines) : "";
-			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + hint + body);
+			return resultOf(theme, ctx, resultLine(theme, summary, ctx.durationMs, at) + hint + body);
 		},
 	};
 }
@@ -104,8 +112,8 @@ export function flatten(name: string, base: ToolRenderers | undefined, getCfg: (
 	if (base.renderShell === "self") return base;
 	return {
 		renderShell: "self",
-		renderCall: base.renderCall ? (padded(base.renderCall)) : generic.renderCall,
-		renderResult: base.renderResult ? (padded(base.renderResult)) : generic.renderResult,
+		renderCall: base.renderCall ? (padded(base.renderCall, "call")) : generic.renderCall,
+		renderResult: base.renderResult ? (padded(base.renderResult, "result")) : generic.renderResult,
 	};
 }
 

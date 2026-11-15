@@ -1,6 +1,6 @@
 import { type BashToolDetails, createBashToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { LumenConfig } from "../config.ts";
-import { callLine, expandHint, framedLines, oneLine, plural, prefixed, resultLine, textOf } from "./format.ts";
+import { callLine, callOf, expandHint, framedLines, oneLine, plural, prefixed, resultLine, resultOf } from "./format.ts";
 import { rowAt } from "./at.ts";
 import { builtinToolOptions } from "./options.ts";
 
@@ -30,13 +30,14 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 		renderCall(args, theme, ctx) {
 			const timeout = args.timeout ? `timeout ${args.timeout}s` : "";
 			const cmdLines = String(args.command ?? "").split("\n");
-			if (cmdLines.length === 1) return textOf(ctx, callLine(theme, ctx, "Bash", `${cmdLines[0]}${timeout ? ` · ${timeout}` : ""}`), ctx.expanded);
+			if (cmdLines.length === 1) return callOf(theme, ctx, callLine(theme, ctx, "Bash", `${cmdLines[0]}${timeout ? ` · ${timeout}` : ""}`), ctx.expanded);
 			// Multi-line script: the real lines under the header. Long lines wrap (expanded) or are cut (collapsed) behind the `│`, never under it.
 			const max = ctx.expanded ? cmdLines.length : MAX_CALL_LINES;
 			const gutter = `${theme.fg("dim", "  │")} `;
 			const header = callLine(theme, ctx, "Bash", timeout || undefined);
 			const hidden = cmdLines.length > max ? theme.fg("muted", `… +${cmdLines.length - max} lines`) : undefined;
-			return textOf(
+			return callOf(
+				theme,
 				ctx,
 				(width) => [header, ...cmdLines.slice(0, max).flatMap((l) => prefixed(gutter, theme.fg("toolOutput", l), width, ctx.expanded)), ...(hidden ? [`${gutter}${hidden}`] : [])].join("\n"),
 				false,
@@ -45,7 +46,7 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 		renderResult(result, { expanded, isPartial }, theme, ctx) {
 			const text = result.content.map((c) => (c.type === "text" ? c.text : "")).join("\n");
 			const lines = outputLines(text);
-			if (isPartial) return textOf(ctx, resultLine(theme, theme.fg("muted", `running · ${plural(lines.length, "line")}`)));
+			if (isPartial) return resultOf(theme, ctx, resultLine(theme, theme.fg("muted", `running · ${plural(lines.length, "line")}`)));
 			const code = exitCodeOf(text, ctx.isError);
 			const details = result.details as BashToolDetails | undefined;
 			const at = rowAt(getCfg, result.details);
@@ -56,7 +57,7 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 			if (details?.truncation?.truncated) summary += theme.fg("warning", " · truncated");
 			const hint = lines.length ? expandHint(theme, ctx, expanded) : "";
 			const body = expanded ? framedLines(theme, lines, getCfg().tools.previewLines) : "";
-			return textOf(ctx, resultLine(theme, summary, ctx.durationMs, at) + hint + body);
+			return resultOf(theme, ctx, resultLine(theme, summary, ctx.durationMs, at) + hint + body);
 		},
 	});
 }
