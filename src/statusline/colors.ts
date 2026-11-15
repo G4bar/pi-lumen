@@ -65,11 +65,11 @@ export function thinkingPaint(theme: Theme, level: string | undefined): (text: s
 	return (t) => theme.fg("thinkingText", t);
 }
 
-/** Context usage: dim, warning above 70 %, error above 90 %. */
+/** Context usage: muted like the other neutral segments, warning above 70 %, error above 90 %; dim only when the usage is unknown. */
 export function contextColor(percent: number | null | undefined): ThemeColor {
 	if (percent == null) return "dim";
 	if (percent > 90) return "error";
-	return percent > 70 ? "warning" : "dim";
+	return percent > 70 ? "warning" : "muted";
 }
 
 /** Quota usage: warning from 75 %, error from 90 %. */

@@ -132,7 +132,7 @@ describe("status line", () => {
 
 describe("colors and formatting", () => {
 	it("threshold bands", () => {
-		expect(contextColor(50)).toBe("dim");
+		expect(contextColor(50)).toBe("muted"); // same neutral as the directory, spend and tok/s
 		expect(contextColor(71)).toBe("warning");
 		expect(contextColor(91)).toBe("error");
 		expect(contextColor(null)).toBe("dim");
