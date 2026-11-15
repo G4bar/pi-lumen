@@ -3,6 +3,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { GitCounts } from "../git.ts";
 import type { Quota } from "../quota.ts";
+import { BLUE, CORAL, colorMode, paint, YELLOW } from "../palette.ts";
 import { ASCII } from "./icons.ts";
 import { cacheColor, contextColor, quotaColor, thinkingPaint } from "./colors.ts";
 
@@ -23,6 +24,9 @@ export interface RenderData {
 	extStatuses: string[];
 }
 
+/** Neutral text in one of pi's logo colors. */
+const logo = (d: RenderData, color: typeof CORAL, text: string): string => paint(color, text, colorMode(d.theme));
+
 export function formatTokens(n: number): string {
 	if (n < 1000) return String(n);
 	if (n < 1_000_000) return `${n >= 100_000 ? Math.round(n / 1000) : Math.round(n / 100) / 10}k`.replace(".0k", "k");
@@ -34,7 +38,7 @@ export function modelSegment(d: RenderData, maxWidth?: number): string {
 	const icon = d.icons === "ascii" ? ASCII.model : "";
 	const full = `${icon}${d.provider ? `${d.provider} · ` : ""}${name}`;
 	const text = maxWidth !== undefined ? truncateToWidth(full, Math.max(1, maxWidth), "…") : full;
-	return d.theme.fg("accent", text);
+	return logo(d, CORAL, text);
 }
 
 export function thinkSegment(d: RenderData): string {
@@ -48,21 +52,24 @@ export function contextSegment(d: RenderData): string {
 	const win = formatTokens(c.window);
 	const used = c.tokens == null ? "?" : formatTokens(c.tokens);
 	const text = `${d.icons === "ascii" ? ASCII.context : ""}${used}/${win}${c.percent == null ? "" : ` ${Math.round(c.percent)}%`}`;
-	return d.theme.fg(contextColor(c.percent), text);
+	const color = contextColor(c.percent);
+	return color === "dim" && c.percent != null ? logo(d, BLUE, text) : d.theme.fg(color, text); // dim = no warning yet
 }
 
 export function spendSegment(d: RenderData): string | undefined {
 	const s = d.spend;
-	if (s.mode === "api") return d.theme.fg("muted", `$${s.cost.toFixed(s.cost < 10 ? 2 : 1)}`); // `$` is already the cost glyph
+	if (s.mode === "api") return logo(d, YELLOW, `$${s.cost.toFixed(s.cost < 10 ? 2 : 1)}`); // `$` is already the cost glyph
 	if (s.quota && (s.quota.fiveHour !== undefined || s.quota.sevenDay !== undefined)) {
 		const part = (label: string, v: number | undefined): string | undefined => {
 			if (v === undefined) return undefined;
-			return d.theme.fg(s.stale ? "dim" : quotaColor(v), `${label} ${v}%`);
+			if (s.stale) return d.theme.fg("dim", `${label} ${v}%`);
+			const color = quotaColor(v);
+			return color === "muted" ? logo(d, YELLOW, `${label} ${v}%`) : d.theme.fg(color, `${label} ${v}%`); // muted = below the warning level
 		};
 		return [part("5h", s.quota.fiveHour), part("7d", s.quota.sevenDay)].filter(Boolean).join(d.theme.fg("dim", " · "));
 	}
 	// OAuth without quota: reported cost if any, otherwise `sub`.
-	return d.theme.fg("muted", s.cost && s.cost > 0 ? `$${s.cost.toFixed(2)}` : "sub");
+	return logo(d, YELLOW, s.cost && s.cost > 0 ? `$${s.cost.toFixed(2)}` : "sub");
 }
 
 export function cacheTpsSegment(d: RenderData): string | undefined {
@@ -70,13 +77,13 @@ export function cacheTpsSegment(d: RenderData): string | undefined {
 	if (d.cache.kind === "rate") parts.push(d.theme.fg(cacheColor(d.cache.percent), `CH ${d.cache.percent}%`));
 	else if (d.cache.kind === "none") parts.push(d.theme.fg("dim", "CH --"));
 	if (d.cache.kind !== "hidden" || d.tps !== undefined) {
-		parts.push(d.theme.fg("muted", d.tps === undefined ? "— tok/s" : `${Math.round(d.tps)} tok/s`));
+		parts.push(logo(d, BLUE, d.tps === undefined ? "— tok/s" : `${Math.round(d.tps)} tok/s`));
 	}
 	return parts.length ? parts.join(d.theme.fg("dim", " · ")) : undefined;
 }
 
 export function dirSegment(d: RenderData): string {
-	return d.theme.fg("muted", `${d.icons === "ascii" ? ASCII.dir : ""}${basename(d.cwd) || d.cwd}`);
+	return logo(d, CORAL, `${d.icons === "ascii" ? ASCII.dir : ""}${basename(d.cwd) || d.cwd}`);
 }
 
 export function gitSegment(d: RenderData, withCounts: boolean): string | undefined {

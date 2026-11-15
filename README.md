@@ -57,6 +57,10 @@ Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no AP
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
+**Colors.** Parts of the line that carry no signal use pi's logo palette (fixed across themes): model and directory
+coral, context and `tok/s` blue, spend and quota yellow. Colors that mean something still come from the theme:
+thinking level, context above 70/90 %, quota from 75/90 %, cache hit-rate bands, git state (branch, `*`, `+`, `?`).
+
 Tool rows are not a command, but they have one key: `ctrl+o` (pi's `app.tools.expand`) expands the tool under the cursor
 and `ctrl+o` again collapses it. The hint is on the result row when there is something to show.
 
