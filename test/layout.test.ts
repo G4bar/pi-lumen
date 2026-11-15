@@ -1,6 +1,6 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
-import { cacheColor, contextColor, quotaColor, spinnerFrames, thinkingPaint } from "../src/statusline/colors.ts";
+import { cacheColor, contextColor, quotaColor, rainbow, spinnerFrames, thinkingPaint } from "../src/statusline/colors.ts";
 import { buildLine, fitLine } from "../src/statusline/layout.ts";
 import { formatTokens, modelSegment, type RenderData } from "../src/statusline/segments.ts";
 
@@ -133,11 +133,21 @@ describe("colors and formatting", () => {
 		expect(cacheColor(69)).toBe("warning");
 		expect(cacheColor(70)).toBe("success");
 	});
-	it("think label and spinner use the prompt box border color of the level", () => {
+	it("rainbow keeps visible text and width", () => {
+		const r = rainbow("think:max");
+		expect(plain(r)).toBe("think:max");
+		expect(visibleWidth(r)).toBe(9);
+	});
+
+	it("below `high` the label and spinner use the prompt box border color; from `high` up they are multicolor", () => {
 		const t = { ...theme, getThinkingBorderColor: (l: string) => (x: string) => `<${l}>${x}` } as unknown as RenderData["theme"];
-		for (const level of ["off", "low", "high", "xhigh", "max"]) {
+		for (const level of ["off", "minimal", "low", "medium"]) {
 			expect(thinkingPaint(t, level)("think")).toBe(`<${level}>think`);
 			for (const frame of spinnerFrames(t, level)) expect(frame.startsWith(`<${level}>`)).toBe(true);
+		}
+		for (const level of ["high", "xhigh", "max"]) {
+			expect(thinkingPaint(t, level)("think")).toBe(rainbow("think"));
+			expect(new Set(spinnerFrames(t, level).map((f) => f.slice(0, 19))).size).toBeGreaterThan(3);
 		}
 	});
 
