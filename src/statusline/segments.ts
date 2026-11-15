@@ -1,9 +1,9 @@
 import { basename } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { GitCounts } from "../git.ts";
 import type { Quota } from "../quota.ts";
-import { BLUE, CORAL, colorMode, paint } from "../palette.ts";
+import { CORAL, colorMode, paint } from "../palette.ts";
 import { ASCII } from "./icons.ts";
 import { cacheColor, contextColor, quotaColor, thinkingPaint } from "./colors.ts";
 
@@ -33,14 +33,11 @@ export function formatTokens(n: number): string {
 	return `${Math.round(n / 100_000) / 10}M`.replace(".0M", "M");
 }
 
-/** `Opus 4 (anthropic)`: the name in coral, the provider dim in parentheses; the provider is cut first. */
+/** `Opus 4 (anthropic)`, all in coral; when it does not fit the end (the provider) is cut first. */
 export function modelSegment(d: RenderData, maxWidth?: number): string {
-	const name = `${d.icons === "ascii" ? ASCII.model : ""}${(d.modelName ?? "no-model").replace(/^Claude\s+/i, "")}`;
-	const provider = d.provider ? ` (${d.provider})` : "";
-	if (maxWidth === undefined || visibleWidth(name + provider) <= maxWidth) return logo(d, CORAL, name) + d.theme.fg("dim", provider);
-	const room = Math.max(1, maxWidth);
-	if (visibleWidth(name) >= room) return logo(d, CORAL, truncateToWidth(name, room, "…"));
-	return logo(d, CORAL, name) + d.theme.fg("dim", truncateToWidth(provider, room - visibleWidth(name), "…"));
+	const name = (d.modelName ?? "no-model").replace(/^Claude\s+/i, "");
+	const full = `${d.icons === "ascii" ? ASCII.model : ""}${name}${d.provider ? ` (${d.provider})` : ""}`;
+	return logo(d, CORAL, maxWidth !== undefined ? truncateToWidth(full, Math.max(1, maxWidth), "…") : full);
 }
 
 export function thinkSegment(d: RenderData): string {
@@ -73,7 +70,10 @@ export function spendSegment(d: RenderData): string | undefined {
 
 export function cacheTpsSegment(d: RenderData): string | undefined {
 	const parts: string[] = [];
-	if (d.cache.kind === "rate") parts.push(d.theme.fg(cacheColor(d.cache.percent), `CH ${d.cache.percent}%`));
+	if (d.cache.kind === "rate") {
+		const band = cacheColor(d.cache.percent);
+		parts.push(d.theme.fg(band === "success" ? "muted" : band, `CH ${d.cache.percent}%`)); // plain while healthy
+	}
 	else if (d.cache.kind === "none") parts.push(d.theme.fg("dim", "CH --"));
 	if (d.cache.kind !== "hidden" || d.tps !== undefined) {
 		parts.push(d.theme.fg("muted", d.tps === undefined ? "— tok/s" : `${Math.round(d.tps)} tok/s`));
@@ -82,7 +82,7 @@ export function cacheTpsSegment(d: RenderData): string | undefined {
 }
 
 export function dirSegment(d: RenderData): string {
-	return logo(d, BLUE, `${d.icons === "ascii" ? ASCII.dir : ""}${basename(d.cwd) || d.cwd}`);
+	return d.theme.fg("muted", `${d.icons === "ascii" ? ASCII.dir : ""}${basename(d.cwd) || d.cwd}`);
 }
 
 export function gitSegment(d: RenderData, withCounts: boolean): string | undefined {

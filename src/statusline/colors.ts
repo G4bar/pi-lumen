@@ -9,7 +9,8 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 type ThemeColor = Parameters<Theme["fg"]>[0];
 export type Level = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
-const RAINBOW = ["#b281d6", "#d787af", "#febc38", "#e4c00f", "#89d281", "#00afaf", "#178fb9", "#b281d6"];
+/** pi's logo colors (coral, blue, yellow) for the high thinking levels, in place of powerline's rainbow. */
+const RAINBOW = ["#e48a7a", "#4f8eb3", "#eab65d"];
 
 function hexFg(hex: string): string {
 	const h = hex.replace("#", "");

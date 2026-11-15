@@ -25,7 +25,7 @@ back in with `inlineStatusKeys`.
 | Segment | Content |
 |---|---|
 | model | model name `(provider)` |
-| think | level, colored like pi's thinking border; `high`/`xhigh`/`max` use a rainbow |
+| think | level, colored like pi's thinking border; `high`/`xhigh`/`max` cycle through the logo colors |
 | context | `84k/200k 42%`, `?/200k` right after compaction; yellow > 70 %, red > 90 % |
 | spend | API key → `$0.42`; subscription login → `5h 37% · 7d 12%` quota when available, otherwise reported cost or `sub` |
 | cache · tps | `CH 81%` (hit rate of the latest request on the active branch; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
@@ -57,10 +57,11 @@ Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no AP
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
-**Colors.** Only identity parts use pi's logo palette (fixed across themes): the model name coral and the directory blue;
-the provider follows the model as a dim `(provider)`. Metrics are never painted in the palette, because its yellow and
-coral read as warning and error: context, spend/quota, `tok/s`, cache and git keep their theme colors (dim/muted, then
-warning/error at 70/90 % context and 75/90 % quota, the cache bands, git state), and the thinking level keeps its own.
+**Colors.** Kept low on purpose. Only the model and its provider, `Opus 4 (anthropic)`, are painted, all in pi's
+logo coral (fixed across themes). Context, spend/quota, `tok/s` and cache are plain (dim/muted) and only turn
+warning/error when it matters: context above 70/90 %, quota from 75/90 %, cache hit rate below 70/30 %. The
+directory is plain and git keeps its theme colors (green: clean, yellow: changes). The thinking level is painted by level;
+`high`, `xhigh` and `max` (label and working spinner) cycle through pi's logo colors (coral, blue, yellow) instead of a rainbow.
 
 Tool rows are not a command, but they have one key: `ctrl+o` (pi's `app.tools.expand`) expands the tool under the cursor
 and `ctrl+o` again collapses it. The hint is on the result row when there is something to show.

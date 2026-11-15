@@ -11,6 +11,9 @@ const theme = {
 	getThinkingBorderColor: () => (t: string) => t,
 } as unknown as RenderData["theme"];
 
+// Theme double that names the token instead of coloring it.
+const tagged = { ...theme, fg: (c: string, t: string) => `<${c}>${t}` } as unknown as RenderData["theme"];
+
 const data = (over: Partial<RenderData> = {}): RenderData => ({
 	theme,
 	icons: "none",
@@ -74,7 +77,7 @@ describe("status line", () => {
 		expect(line).toContain("…");
 	});
 
-	it("model is `name (provider)`: no dot, provider cut before the name", () => {
+	it("model is `name (provider)`: no dot, cut from the end", () => {
 		const d = data();
 		expect(plain(modelSegment(d))).toBe("Opus 4 (anthropic)");
 		expect(plain(modelSegment(d, 12))).toBe("Opus 4 (ant…");
@@ -82,13 +85,20 @@ describe("status line", () => {
 		expect(plain(modelSegment(data({ provider: undefined })))).toBe("Opus 4");
 	});
 
-	it("only identity parts use the logo palette; metrics keep theme colors", () => {
-		const line = buildLine(data(), 0, "│");
-		expect(line).toContain("38;2;228;138;122"); // model: coral
-		expect(line).toContain("38;2;79;142;179"); // directory: blue
-		const metrics = line.slice(line.indexOf("84k/200k") - 8); // context, spend, cache, tok/s
-		const dir = metrics.indexOf("lumen");
-		expect(metrics.slice(0, dir - 20)).not.toMatch(/38;2;(228;138;122|79;142;179|234;182;93)/);
+	it("only the model is painted in the logo palette; metrics, directory and git keep theme colors", () => {
+		const line = buildLine(data({ thinkingLevel: "low" }), 0, "│"); // high+ cycles through the palette too
+		const coral = "38;2;228;138;122";
+		expect(modelSegment(data())).toContain(coral);
+		expect(modelSegment(data({ theme: tagged }))).not.toContain("<dim>"); // provider is not dimmed: one color
+		expect(line.indexOf(coral)).toBe(line.lastIndexOf(coral));
+		expect(line).not.toMatch(/38;2;(79;142;179|234;182;93)/);
+	});
+
+	it("a healthy cache hit rate is plain; low ones still warn", () => {
+		const cache = (percent: number) => buildLine(data({ theme: tagged, cache: { kind: "rate", percent } }), 0, "│");
+		expect(cache(81)).toContain("<muted>CH 81%");
+		expect(cache(50)).toContain("<warning>CH 50%");
+		expect(cache(10)).toContain("<error>CH 10%");
 	});
 
 	it("context shows ?/window when tokens are unknown", () => {
