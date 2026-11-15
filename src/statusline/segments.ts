@@ -29,9 +29,13 @@ export function formatTokens(n: number): string {
 	return `${Math.round(n / 100_000) / 10}M`.replace(".0M", "M");
 }
 
-/** The model's color: white on a dark theme, black on a light one. `theme.appearance` is declared by the theme or detected from its colors, so the system theme follows the terminal too. */
+/**
+ * The model's color: plain ANSI white on a dark theme, ANSI black on a light one. The terminal's own palette white is softer than a
+ * truecolor #ffffff, which looks bold next to the dim metrics. `theme.appearance` is declared by the theme or detected from its colors,
+ * so the system theme follows the terminal too.
+ */
 function modelColor(theme: Theme): string {
-	return theme.appearance === "light" ? "\x1b[38;2;0;0;0m" : "\x1b[38;2;255;255;255m";
+	return theme.appearance === "light" ? "\x1b[30m" : "\x1b[37m";
 }
 
 /** `(anthropic) Sonnet 5.5`, all in the model color (white, black on light themes). When it does not fit the provider shrinks first, the name last. */

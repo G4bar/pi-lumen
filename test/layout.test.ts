@@ -87,10 +87,10 @@ describe("status line", () => {
 		expect(plain(modelSegment(data({ provider: undefined })))).toBe("Sonnet 5.5");
 	});
 
-	it("only the model is colored (white, the same on every theme); metrics, directory and git stay plain or semantic", () => {
+	it("only the model is colored (ANSI white on dark themes); metrics, directory and git stay plain or semantic", () => {
 		const line = buildLine(data({ theme: tagged, thinkingLevel: "off" }), 0, "│");
-		expect(line).toContain("\x1b[38;2;255;255;255m(anthropic) Sonnet 5.5\x1b[39m");
-		expect(line.match(/38;2;255;255;255/g)).toHaveLength(1);
+		expect(line).toContain("\x1b[37m(anthropic) Sonnet 5.5\x1b[39m"); // plain ANSI white, not a bright truecolor #ffffff
+		expect(line.split("\x1b[37m")).toHaveLength(2); // exactly one colored segment
 		expect(line).not.toContain("<accent>");
 		expect(line).toContain("<muted>lumen");
 	});
@@ -98,8 +98,8 @@ describe("status line", () => {
 	it("light themes (theme.appearance) get a black model instead of white", () => {
 		const light = { ...tagged, appearance: "light" } as unknown as RenderData["theme"];
 		const line = buildLine(data({ theme: light, thinkingLevel: "off" }), 0, "│");
-		expect(line).toContain("\x1b[38;2;0;0;0m(anthropic) Sonnet 5.5\x1b[39m");
-		expect(line).not.toContain("38;2;255;255;255");
+		expect(line).toContain("\x1b[30m(anthropic) Sonnet 5.5\x1b[39m");
+		expect(line).not.toContain("\x1b[37m");
 	});
 
 	it("a healthy cache hit rate is plain; low ones still warn", () => {

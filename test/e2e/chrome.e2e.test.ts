@@ -221,8 +221,8 @@ describe.skipIf(!hasTmux || !hasPi)("bundled themes", () => {
 	const h = useSession();
 
 	it.each([
-		["pi-dark", "38;2;255;255;255"], // model white on dark
-		["pi-light", "38;2;0;0;0"], // model black on light
+		["pi-dark", "\x1b[37m"], // model: plain ANSI white on dark
+		["pi-light", "\x1b[30m"], // model: ANSI black on light
 	])("%s: comes with the installed package (manifest), selectable at startup; model white (dark) or black (light), logo in the fixed brand colors", async (theme, model) => {
 		const s = await h.start({ responder: respond([]), settings: { theme }, asPackage: true });
 		await s.waitFor(/Welcome back!/);
