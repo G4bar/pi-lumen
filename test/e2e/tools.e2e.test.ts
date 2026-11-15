@@ -395,6 +395,20 @@ describe.skipIf(!hasTmux || !hasPi)("foreign tools look like ours", () => {
 		expect(s.screen()).toMatch(/└ 3 lines/);
 		expect(ansiLine(s, "Plain_demo")).toContain(NEUTRAL);
 	});
+	it("`/lumen box none|theme` applies to the tool rows drawn afterwards", async () => {
+		for (const [mode, has] of [["none", false], ["theme", true]] as const) {
+			const s = await h.start({ responder: responder(call("plain_demo", { query: "hello" })), extensions: [EXT], settings: darkWith() });
+			s.send(`/lumen box ${mode}`);
+			await s.waitFor(`box ${mode}`);
+			s.send("go");
+			await s.waitFor("fine", 30_000);
+			await s.settle();
+			const row = ansiLine(s, "Plain_demo");
+			if (has) expect(row).toContain(SUCCESS);
+			else expect(row).not.toMatch(/\x1b\[48;/);
+			await s.stop();
+		}
+	});
 	it("tools.box: theme uses pi's success panel, none draws no box", async () => {
 		expect(ansiLine(await plain(darkWith({ box: "theme" })), "Plain_demo")).toContain(SUCCESS);
 		expect(ansiLine(await plain(darkWith({ box: "none" })), "Plain_demo")).not.toMatch(/\x1b\[48;/);

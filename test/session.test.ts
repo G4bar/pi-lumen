@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,6 +71,23 @@ describe("LumenSession", () => {
 		expect(last[2].placement).toBe("aboveEditor");
 		expect(JSON.parse(readFileSync(join(dir, "pi-lumen.json"), "utf8")).placement).toBe("above");
 		s.dispose();
+	});
+
+	it("box is saved only once `/lumen box` was used, then wins over settings.json on the next start", () => {
+		const first = fake();
+		const s = new LumenSession(first.pi as any, first.ctx as any);
+		s.setPlacement("below");
+		expect(JSON.parse(readFileSync(join(dir, "pi-lumen.json"), "utf8")).box).toBeUndefined(); // settings.json still decides
+		s.setBox("none");
+		expect(s.cfg.tools.box).toBe("none");
+		expect(JSON.parse(readFileSync(join(dir, "pi-lumen.json"), "utf8")).box).toBe("none");
+		expect(s.describe()).toContain("box none");
+		s.dispose();
+		const second = fake();
+		const again = new LumenSession(second.pi as any, second.ctx as any);
+		expect(again.cfg.tools.box).toBe("none");
+		again.dispose();
+		rmSync(join(dir, "pi-lumen.json"), { force: true }); // keep the shared state file clean for the other tests
 	});
 
 	it("leaves no timers after thinking stops, after dispose, and bump throttling", () => {

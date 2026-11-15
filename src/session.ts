@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
-import { type LumenConfig, loadState, resolveConfig, type StateOverrides, saveState, statePath } from "./config.ts";
+import { type BoxMode, type LumenConfig, loadState, resolveConfig, type StateOverrides, saveState, statePath } from "./config.ts";
 import { GitStatusCache } from "./git.ts";
 import { QuotaClient } from "./quota.ts";
 import { formatStatusReport, groupLoaded, type LoadedExtension } from "./status.ts";
@@ -39,6 +39,8 @@ export class LumenSession {
 	private lastLabel: string | undefined;
 	private readonly git: GitStatusCache;
 	private quota: QuotaClient | undefined;
+	/** Set by `/lumen box`; only then is it written to the state file (otherwise settings.json decides). */
+	private boxOverride: BoxMode | undefined;
 
 	constructor(
 		private readonly pi: ExtensionAPI,
@@ -46,6 +48,7 @@ export class LumenSession {
 	) {
 		this.ctx = ctx;
 		this.cfg = this.loadConfig();
+		this.boxOverride = loadState(statePath(getAgentDir())).box;
 		this.git = new GitStatusCache(
 			() => this.cfg.git.statusTtlMs,
 			() => this.bump(),
@@ -240,8 +243,15 @@ export class LumenSession {
 		else this.uninstallUi();
 	}
 
+	/** Tool-box background for the tool rows drawn from now on (rows already on screen keep theirs). */
+	setBox(box: BoxMode): void {
+		this.cfg.tools.box = box;
+		this.boxOverride = box;
+		this.persist();
+	}
+
 	private persist(): void {
-		const state: StateOverrides = { enabled: this.cfg.enabled, placement: this.cfg.placement };
+		const state: StateOverrides = { enabled: this.cfg.enabled, placement: this.cfg.placement, ...(this.boxOverride ? { box: this.boxOverride } : {}) };
 		saveState(statePath(getAgentDir()), state);
 	}
 
@@ -269,7 +279,7 @@ export class LumenSession {
 
 	describe(): string {
 		const d = this.data();
-		return `pi-lumen ${this.cfg.enabled ? "on" : "off"} · placement ${this.cfg.placement} · quota ${this.cfg.quota.enabled ? "on" : "off"} · tools ${this.cfg.tools.enabled ? "on" : "off"} · stamp ${this.cfg.stamp.enabled ? "on" : "off"} · ${d.provider ?? "?"}/${d.modelName ?? "?"}`;
+		return `pi-lumen ${this.cfg.enabled ? "on" : "off"} · placement ${this.cfg.placement} · quota ${this.cfg.quota.enabled ? "on" : "off"} · tools ${this.cfg.tools.enabled ? `on (box ${this.cfg.tools.box})` : "off"} · stamp ${this.cfg.stamp.enabled ? "on" : "off"} · ${d.provider ?? "?"}/${d.modelName ?? "?"}`;
 	}
 
 	// ── thinking & working indicator ─────────────────────────────────────────

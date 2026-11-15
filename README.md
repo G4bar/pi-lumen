@@ -44,15 +44,16 @@ match the `tok/s` of pi-stamp, which starts at message creation and therefore in
 
 | Command | What it does |
 |---|---|
-| `/lumen` | Shows the current state as a notification: `pi-lumen on · placement below · quota on · tools on · stamp on · provider/model`. Changes nothing. |
+| `/lumen` | Shows the current state as a notification: `pi-lumen on · placement below · quota on · tools on (box neutral) · stamp on · provider/model`. Changes nothing. |
 | `/lumen placement above\|below` | Moves the status line above or below the input box. |
 | `/lumen placement toggle` | Switches to the other position. |
+| `/lumen box neutral\|theme\|none` | Tool-box background of the tool rows: `neutral` (default) grey, `theme` pi's own panels (green on success), `none` flat rows. Without an argument it shows the usage and the current value. It applies to the tool rows drawn from then on (rows already on screen keep theirs); `/reload` redraws them. |
 | `/lumen on` / `/lumen off` | `off` hands the footer, working indicator and thinking label back to pi (the status line, thinking colors and indicators go away); `on` installs them again. It applies at once, no restart. |
 | `/status` | Every status published by other extensions (`pi-sync`, `pi-lens · LSP`, unknown keys as-is), plus the loaded extensions with their command/tool counts. A snapshot shown as a notification; it needs the pi-lumen footer (with `/lumen off` pi's own footer shows the statuses). Richer details stay in each extension's own command (`/lens`, `/sync`). |
 
 Each `/lumen` subcommand also prints the new state. A wrong argument shows the usage line and changes nothing.
 
-Placement and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no API to write `settings.json`), so they survive restarts.
+Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no API to write `settings.json`), so they survive restarts.
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
@@ -149,7 +150,7 @@ Optional, key `lumen` in `settings.json`:
 }
 ```
 
-`tools.box` is the tool-box background: `neutral` (default; pi's grey pending panel, red panel on errors), `theme` (pi's own panels: green on success) or `none` (flat rows on the terminal background). A theme without tool panels draws no box.
+`tools.box` (or `/lumen box …`, which is saved and wins over it) is the tool-box background: `neutral` (default; pi's grey pending panel, red panel on errors), `theme` (pi's own panels: green on success) or `none` (flat rows on the terminal background). A theme without tool panels draws no box.
 
 `tools.enabled` is read from the global `settings.json` only (tools are registered at load, before pi's trust
 decision about the project is known); every other key also honours the project `.pi/settings.json` as merged by pi.

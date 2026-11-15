@@ -2,6 +2,10 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join } from "node:path";
 
 export type Placement = "above" | "below";
+/** Tool-box background (`tools.box`): `neutral` = pi's grey pending panel (red on errors), `theme` = pi's own panels, `none` = flat rows. */
+export type BoxMode = "neutral" | "theme" | "none";
+export const BOX_MODES: readonly BoxMode[] = ["neutral", "theme", "none"];
+export const isBoxMode = (v: unknown): v is BoxMode => typeof v === "string" && (BOX_MODES as readonly string[]).includes(v);
 
 export interface LumenConfig {
 	enabled: boolean;
@@ -12,7 +16,7 @@ export interface LumenConfig {
 	git: { statusTtlMs: number };
 	quota: { enabled: boolean; ttlMs: number };
 	stamp: { enabled: boolean; duration: boolean };
-	tools: { enabled: boolean; previewLines: number; changeLines: number; time: boolean; timeGapSec: number; shiki: boolean; theme: string; box: "neutral" | "theme" | "none" };
+	tools: { enabled: boolean; previewLines: number; changeLines: number; time: boolean; timeGapSec: number; shiki: boolean; theme: string; box: BoxMode };
 	/** Status keys of other extensions still drawn in the status line; everything else is only in /status. */
 	inlineStatusKeys: string[];
 }
@@ -50,7 +54,9 @@ export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): 
 	const cfg = merge(merge(DEFAULTS, settingsLumen), stateOverrides);
 	if (cfg.placement !== "above" && cfg.placement !== "below") cfg.placement = DEFAULTS.placement;
 	if (cfg.icons !== "none" && cfg.icons !== "ascii") cfg.icons = DEFAULTS.icons;
-	if (cfg.tools.box !== "neutral" && cfg.tools.box !== "theme" && cfg.tools.box !== "none") cfg.tools.box = DEFAULTS.tools.box;
+	if (!isBoxMode(cfg.tools.box)) cfg.tools.box = DEFAULTS.tools.box;
+	// `/lumen box` is saved as a top-level key of the state file and wins over settings.json
+	if (isRecord(stateOverrides) && isBoxMode(stateOverrides.box)) cfg.tools.box = stateOverrides.box;
 	cfg.tools.previewLines = Math.max(0, Math.floor(cfg.tools.previewLines));
 	cfg.tools.changeLines = Math.max(0, Math.floor(cfg.tools.changeLines));
 	cfg.tools.timeGapSec = Math.max(0, cfg.tools.timeGapSec);
@@ -60,7 +66,7 @@ export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): 
 }
 
 /** Persisted overrides written by `/lumen` commands (pi has no public settings writer). */
-export type StateOverrides = Partial<Pick<LumenConfig, "enabled" | "placement">>;
+export type StateOverrides = Partial<Pick<LumenConfig, "enabled" | "placement">> & { box?: BoxMode };
 
 export function statePath(agentDir: string): string {
 	return join(agentDir, "pi-lumen.json");
@@ -74,6 +80,7 @@ export function loadState(path: string): StateOverrides {
 		const out: StateOverrides = {};
 		if (typeof raw.enabled === "boolean") out.enabled = raw.enabled;
 		if (raw.placement === "above" || raw.placement === "below") out.placement = raw.placement;
+		if (isBoxMode(raw.box)) out.box = raw.box;
 		return out;
 	} catch {
 		return {};

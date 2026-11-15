@@ -96,6 +96,14 @@ describe.skipIf(!hasTmux || !hasPi)("status line", () => {
 		expect(lines.findIndex((l) => l.startsWith("mock · Mock Model"))).toBeLessThan(lines.findIndex((l) => BORDER.test(l)));
 	});
 
+	it("/lumen box: invalid value shows usage with the current one; valid ones apply and are reported", async () => {
+		const s = await h.start({ responder: respond([]) });
+		s.send("/lumen box rainbow");
+		await s.waitFor("Usage: /lumen box neutral|theme|none (now: neutral)");
+		s.send("/lumen box none");
+		await s.waitFor("box none");
+	});
+
 	it("/lumen off restores pi's own footer and editor", async () => {
 		const s = await h.start({ responder: respond([]) });
 		s.send("/lumen off");

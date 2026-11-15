@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { DEFAULTS, type LumenConfig, loadBootSettings, loadState, resolveConfig, statePath } from "./config.ts";
+import { BOX_MODES, DEFAULTS, isBoxMode, type LumenConfig, loadBootSettings, loadState, resolveConfig, statePath } from "./config.ts";
 import { LumenSession } from "./session.ts";
 import { registerStamp } from "./stamp.ts";
 import { registerTools } from "./tools/index.ts";
@@ -127,7 +127,7 @@ export default function lumen(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("lumen", {
-		description: "pi-lumen: /lumen [placement above|below|toggle | on | off]",
+		description: "pi-lumen: /lumen [placement above|below|toggle | box neutral|theme|none | on | off]",
 		handler: async (args, ctx) => {
 			const s = session;
 			if (!s) return;
@@ -142,8 +142,14 @@ export default function lumen(pi: ExtensionAPI): void {
 					return;
 				}
 				s.setPlacement(next);
+			} else if (cmd === "box") {
+				if (!isBoxMode(arg)) {
+					ctx.ui.notify(`Usage: /lumen box ${BOX_MODES.join("|")} (now: ${s.cfg.tools.box})`, "warning");
+					return;
+				}
+				s.setBox(arg);
 			} else if (cmd) {
-				ctx.ui.notify("Usage: /lumen [placement above|below|toggle | on | off]", "warning");
+				ctx.ui.notify("Usage: /lumen [placement above|below|toggle | box neutral|theme|none | on | off]", "warning");
 				return;
 			}
 			ctx.ui.notify(s.describe(), "info");

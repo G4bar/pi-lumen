@@ -4,6 +4,7 @@
  */
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import type { BoxMode } from "../config.ts";
 import { formatToolDuration } from "../time.ts";
 import { formatAt } from "./at.ts";
 
@@ -122,8 +123,6 @@ export function prefixed(prefix: string, text: string, width: number, wrap: bool
 	return (text === "" ? [""] : wrapTextWithAnsi(text, room)).map((piece) => `${prefix}${piece}`);
 }
 
-/** How the tool boxes are painted (`tools.box`): `neutral` = pi's grey pending panel (red on errors), `theme` = pi's own panels, `none` = no box. */
-export type BoxMode = "neutral" | "theme" | "none";
 let boxMode: () => BoxMode = () => "neutral";
 export const setBoxMode = (get: () => BoxMode): void => {
 	boxMode = get;

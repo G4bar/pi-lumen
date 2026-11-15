@@ -29,6 +29,11 @@ describe("config", () => {
 		expect(resolveConfig({ tools: { box: "theme" } }, null).tools.box).toBe("theme");
 		expect(resolveConfig({ tools: { box: "rainbow" } }, null).tools.box).toBe("neutral");
 	});
+	it("a saved `/lumen box` wins over settings.json; a bad saved value is ignored", () => {
+		expect(resolveConfig({ tools: { box: "theme" } }, { box: "none" }).tools.box).toBe("none");
+		expect(resolveConfig({ tools: { box: "theme" } }, { box: "rainbow" }).tools.box).toBe("theme");
+		expect(resolveConfig(undefined, { box: "theme" }).tools.box).toBe("theme");
+	});
 	it("does not mutate DEFAULTS", () => {
 		resolveConfig({ tools: { previewLines: 5 } }, undefined);
 		expect(DEFAULTS.tools.previewLines).toBe(40);
