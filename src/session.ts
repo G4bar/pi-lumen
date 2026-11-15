@@ -1,11 +1,12 @@
 import type { ExtensionAPI, ExtensionContext, ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, keyText, VERSION } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 import { type BoxMode, type LumenConfig, loadState, resolveConfig, type StateOverrides, saveState, statePath } from "./config.ts";
 import { GitStatusCache } from "./git.ts";
 import { QuotaClient } from "./quota.ts";
 import { formatStatusReport, groupLoaded, type LoadedExtension } from "./status.ts";
 import { RowThinking } from "./thinking-label.ts";
+import { countContextFiles, recentSessions, type RecentSession, WelcomeHeader, type WelcomeData } from "./welcome.ts";
 import { cacheView, computeStats, emptyStats, type LedgerStats, ThinkingTimer, TpsTracker } from "./stats.ts";
 
 import { spinnerFrames } from "./statusline/colors.ts";
@@ -41,6 +42,11 @@ export class LumenSession {
 	private quota: QuotaClient | undefined;
 	/** Set by `/lumen box`; only then is it written to the state file (otherwise settings.json decides). */
 	private boxOverride: BoxMode | undefined;
+	private headerOn = false;
+	private headerTimer: ReturnType<typeof setTimeout> | undefined;
+	private headerAbort: AbortController | undefined;
+	private recent: RecentSession[] | undefined;
+	private loadedCounts = { contextFiles: 0, skills: 0, promptTemplates: 0 };
 
 	constructor(
 		private readonly pi: ExtensionAPI,
@@ -206,13 +212,103 @@ export class LumenSession {
 		);
 		this.rows.install();
 		this.applyWorkingIndicator();
+		this.installHeader();
 		this.bump();
+	}
+
+	// ── start screen ─────────────────────────────────────────────────────────
+
+	private welcomeData(): WelcomeData {
+		const model = this.ctx.model;
+		const key = (binding: Parameters<typeof keyText>[0], fallback: string): string => {
+			try {
+				return keyText(binding) || fallback;
+			} catch {
+				return fallback;
+			}
+		};
+		return {
+			modelName: model?.name || model?.id || "No model",
+			providerName: model?.provider ?? "Unknown",
+			version: VERSION,
+			recentSessions: this.recent,
+			loaded: this.loadedCounts,
+			tips: [
+				{ key: "/", label: "for commands" },
+				{ key: "!", label: "to run bash" },
+				{ key: key("app.thinking.cycle", "Shift+Tab"), label: "cycle thinking" },
+				{ key: key("app.tools.expand", "Ctrl+O"), label: "expand tools" },
+			],
+		};
+	}
+
+	/**
+	 * Replace pi's header with the boxed start screen. It stays for the whole session (it scrolls with the
+	 * transcript, nothing dismisses it). Deferred: pi ignores `setHeader` while it is still starting up.
+	 */
+	private installHeader(): void {
+		if (!this.cfg.welcome || this.headerOn || this.headerTimer) return;
+		this.headerTimer = setTimeout(() => {
+			this.headerTimer = undefined;
+			if (this.disposed || !this.uiInstalled || !this.cfg.welcome || this.headerOn) return;
+			const ctx = this.ctx;
+			try {
+				let commands: { source: string }[] = [];
+				try {
+					commands = this.pi.getCommands();
+				} catch {
+					commands = [];
+				}
+				this.loadedCounts = {
+					contextFiles: countContextFiles(ctx.cwd, getAgentDir()),
+					skills: commands.filter((c) => c.source === "skill").length,
+					promptTemplates: commands.filter((c) => c.source === "prompt").length,
+				};
+				let headerTui: TUI | undefined;
+				ctx.ui.setHeader((tui) => {
+					headerTui = tui;
+					return new WelcomeHeader(
+						() => this.welcomeData(),
+						() => ctx.ui.theme,
+					);
+				});
+				this.headerOn = true;
+				const abort = new AbortController();
+				this.headerAbort = abort;
+				recentSessions(getAgentDir(), 3, abort.signal)
+					.then((list) => {
+						if (abort.signal.aborted) return;
+						this.recent = list;
+						headerTui?.requestRender();
+					})
+					.catch(() => {
+						if (abort.signal.aborted) return;
+						this.recent = [];
+						headerTui?.requestRender();
+					});
+			} catch {
+				/* context already torn down */
+			}
+		}, 0);
+		this.headerTimer.unref?.();
+	}
+
+	private uninstallHeader(): void {
+		if (this.headerTimer) clearTimeout(this.headerTimer);
+		this.headerTimer = undefined;
+		this.headerAbort?.abort();
+		this.headerAbort = undefined;
+		if (!this.headerOn) return;
+		this.headerOn = false;
+		this.recent = undefined;
+		this.ctx.ui.setHeader(undefined);
 	}
 
 	uninstallUi(): void {
 		if (!this.uiInstalled) return;
 		this.uiInstalled = false;
 		try {
+			this.uninstallHeader();
 			this.ctx.ui.setWidget(WIDGET_KEY, undefined);
 			if (this.footerOwned) this.ctx.ui.setFooter(undefined);
 			this.footerOwned = false;

@@ -60,6 +60,24 @@ They override the same keys in `settings.json`. Everything else (separator, icon
 Tool rows are not a command, but they have one key: `ctrl+o` (pi's `app.tools.expand`) expands the tool under the cursor
 and `ctrl+o` again collapses it. The hint is on the result row when there is something to show.
 
+## Start screen
+
+A boxed, persistent header replaces pi's own (layout as in pi-powerline-footer): `Welcome back!`, pi's **real**
+logo (the coral/blue/yellow pixel logo of pi's own header, scaled up; not a block-letter approximation), model and
+provider on the left; `Tips`, `Loaded` (context files, skills, prompt templates) and `Recent sessions` on the right,
+with headings and numbers in the logo's three colors. It is not an overlay and nothing dismisses it: it scrolls with
+the transcript like pi's header. Below 44 columns only the small logo is drawn. `/lumen off` gives pi's header back;
+`welcome: false` in the `lumen` settings keeps pi's header and leaves the rest of pi-lumen on.
+
+```text
+╭─── Pi v1.5.2 ───────────────────────────────────────────────────────────────────────────────╮
+│                          │ Tips                                                              │
+│      Welcome back!       │ / for commands                                                    │
+│       █████████          │ ! to run bash                                                     │
+│       ▀▀▀▀▀▀███          │ shift+tab cycle thinking                                          │
+│       ███   ███          │ ctrl+o expand tools                                               │
+```
+
 ## Compact tools
 
 `read`, `bash`, `edit`, `write` are re-registered with the SDK definition spread, so schemas,
@@ -145,7 +163,8 @@ Optional, key `lumen` in `settings.json`:
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
     "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": false, "timeGapSec": 5, "shiki": true, "theme": "auto", "box": "neutral" },
-    "inlineStatusKeys": []
+    "inlineStatusKeys": [],
+    "welcome": true
   }
 }
 ```

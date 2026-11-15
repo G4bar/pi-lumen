@@ -19,6 +19,8 @@ export interface LumenConfig {
 	tools: { enabled: boolean; previewLines: number; changeLines: number; time: boolean; timeGapSec: number; shiki: boolean; theme: string; box: BoxMode };
 	/** Status keys of other extensions still drawn in the status line; everything else is only in /status. */
 	inlineStatusKeys: string[];
+	/** Persistent start screen (boxed header with pi's logo) instead of pi's own header. */
+	welcome: boolean;
 }
 
 export const DEFAULTS: LumenConfig = {
@@ -32,6 +34,7 @@ export const DEFAULTS: LumenConfig = {
 	stamp: { enabled: true, duration: false },
 	tools: { enabled: true, previewLines: 40, changeLines: 12, time: false, timeGapSec: 5, shiki: true, theme: "auto", box: "neutral" },
 	inlineStatusKeys: [],
+	welcome: true,
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

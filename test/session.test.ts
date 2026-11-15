@@ -8,7 +8,7 @@ process.env.PI_CODING_AGENT_DIR = dir;
 
 const { LumenSession } = await import("../src/session.ts");
 
-const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t, getThinkingBorderColor: () => (t: string) => t };
+const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t, getThinkingBorderColor: () => (t: string) => t, getColorMode: () => "truecolor" };
 
 function fake() {
 	const calls: Record<string, unknown[][]> = {};
@@ -20,6 +20,7 @@ function fake() {
 		theme,
 		setFooter: rec("setFooter"),
 		setWidget: rec("setWidget"),
+		setHeader: rec("setHeader"),
 		setWorkingIndicator: rec("setWorkingIndicator"),
 		setHiddenThinkingLabel: rec("setHiddenThinkingLabel"),
 		getEditorComponent: () => ({}), // slot taken → no prompt editor
@@ -93,6 +94,7 @@ describe("LumenSession", () => {
 	it("leaves no timers after thinking stops, after dispose, and bump throttling", () => {
 		const { ctx, pi, calls } = fake();
 		const s = new LumenSession(pi as any, ctx as any);
+		s.cfg.welcome = false; // its deferred install is a timer of its own, see the start screen test
 		s.installUi();
 		const renders = vi.fn();
 		(s as any).tui = { requestRender: renders };
@@ -113,6 +115,37 @@ describe("LumenSession", () => {
 		s.dispose(); // idempotent
 		s.thinkingStart(); // no-op after dispose
 		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("start screen: installed once after startup, kept for the session, given back on uninstall", () => {
+		const { ctx, pi, calls } = fake();
+		const s = new LumenSession(pi as any, ctx as any);
+		s.installUi();
+		expect(calls.setHeader).toBeUndefined(); // deferred: pi ignores setHeader while starting up
+		vi.advanceTimersByTime(0);
+		expect(calls.setHeader).toHaveLength(1);
+		const factory = calls.setHeader?.[0]?.[0] as (tui: unknown) => { render(w: number): string[] };
+		const header = factory({ requestRender() {} });
+		const text = header.render(100).join("\n").replace(/\x1b\[[0-9;]*m/g, "");
+		expect(text).toContain("Welcome back!");
+		expect(text).toContain("Model One");
+		s.touch(ctx as any);
+		s.bump(); // nothing in the session dismisses it
+		expect(calls.setHeader).toHaveLength(1);
+		s.uninstallUi();
+		expect(calls.setHeader?.at(-1)?.[0]).toBeUndefined();
+		s.dispose();
+	});
+
+	it("welcome: false leaves pi's own header alone", () => {
+		const { ctx, pi, calls } = fake();
+		const s = new LumenSession(pi as any, ctx as any);
+		s.cfg.welcome = false;
+		s.installUi();
+		vi.advanceTimersByTime(0);
+		s.uninstallUi();
+		expect(calls.setHeader).toBeUndefined();
+		s.dispose();
 	});
 
 	it("gives the footer back only while it is still ours", () => {

@@ -183,3 +183,27 @@ describe.skipIf(!hasTmux || !hasPi)("hidden thinking labels (one per row)", () =
 		expect(done).not.toContain("Thinking...");
 	});
 });
+
+describe.skipIf(!hasTmux || !hasPi)("start screen", () => {
+	const h = useSession();
+
+	it("boxed header with pi's logo stays after the first message and a reply", async () => {
+		const s = await h.start({ responder: respond([{ text: "hello" }]) });
+		await s.waitFor(/Welcome back!/);
+		const screen = s.screen();
+		expect(screen).toContain("╭───");
+		expect(screen).toContain("Tips");
+		expect(screen).toContain("Recent sessions");
+		expect(screen).toContain("███   ███"); // pi's logo (its upper bowl) at 3x
+		s.send("go");
+		await s.waitFor("hello");
+		await s.settle();
+		expect(s.history()).toContain("Welcome back!");
+	});
+
+	it("welcome: false keeps pi's own header", async () => {
+		const s = await h.start({ responder: respond([]), settings: { lumen: { welcome: false } } });
+		await s.settle();
+		expect(s.screen()).not.toContain("Welcome back!");
+	});
+});
