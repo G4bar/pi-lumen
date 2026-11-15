@@ -29,11 +29,16 @@ export function formatTokens(n: number): string {
 	return `${Math.round(n / 100_000) / 10}M`.replace(".0M", "M");
 }
 
-/** `(anthropic) Opus 4`, all in the theme accent (coral in the pi themes). When it does not fit the provider shrinks first, the name last. */
+/** The model's color: white on a dark theme, black on a light one. `theme.appearance` is declared by the theme or detected from its colors, so the system theme follows the terminal too. */
+function modelColor(theme: Theme): string {
+	return theme.appearance === "light" ? "\x1b[38;2;0;0;0m" : "\x1b[38;2;255;255;255m";
+}
+
+/** `(anthropic) Sonnet 5.5`, all in the model color (white, black on light themes). When it does not fit the provider shrinks first, the name last. */
 export function modelSegment(d: RenderData, maxWidth?: number): string {
 	const name = `${d.icons === "ascii" ? ASCII.model : ""}${(d.modelName ?? "no-model").replace(/^Claude\s+/i, "")}`;
 	const provider = d.provider ? `(${d.provider})` : "";
-	const paint = (text: string): string => d.theme.fg("accent", text);
+	const paint = (text: string): string => `${modelColor(d.theme)}${text}\x1b[39m`;
 	if (maxWidth === undefined || visibleWidth(provider ? `${provider} ${name}` : name) <= maxWidth) return paint(provider ? `${provider} ${name}` : name);
 	const room = Math.max(1, maxWidth);
 	if (visibleWidth(name) >= room) return paint(truncateToWidth(name, room, "…"));

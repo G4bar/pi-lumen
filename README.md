@@ -58,7 +58,7 @@ Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no AP
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
-**Colors.** Kept low on purpose. Only the model and its provider, `(anthropic) Opus 4`, are colored (the theme's `accent`).
+**Colors.** Kept low on purpose. Only the model and its provider, `(anthropic) Sonnet 5.5`, are colored: white (`#ffffff`) on dark themes, black (`#000000`) on light ones (`theme.appearance`).
 Context, spend/quota, `tok/s` and cache are plain (dim/muted) and only turn warning/error when it matters: context
 above 70/90 %, quota from 75/90 %, cache hit rate below 70/30 %. The directory is plain and git keeps its theme
 colors (green: clean, yellow: changes). The thinking level and the working spinner use the prompt box border color of the level

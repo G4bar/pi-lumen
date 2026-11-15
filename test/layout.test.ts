@@ -18,7 +18,7 @@ const data = (over: Partial<RenderData> = {}): RenderData => ({
 	theme,
 	icons: "none",
 	provider: "anthropic",
-	modelName: "Claude Opus 4",
+	modelName: "Claude Sonnet 5.5",
 	thinkingLevel: "high",
 	context: { tokens: 84_000, window: 200_000, percent: 42 },
 	spend: { mode: "oauth", quota: { fiveHour: 37, sevenDay: 12 }, stale: false },
@@ -36,7 +36,7 @@ const plain = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 describe("status line", () => {
 	it("renders every segment at full width", () => {
 		const line = plain(buildLine(data(), 0, "│"));
-		expect(line).toContain("(anthropic) Opus 4");
+		expect(line).toContain("(anthropic) Sonnet 5.5");
 		expect(line).toContain("think:high");
 		expect(line).toContain("84k/200k 42%");
 		expect(line).toContain("5h 37% · 7d 12%");
@@ -65,7 +65,7 @@ describe("status line", () => {
 		expect(levels[5]).toContain("main");
 		expect(levels[6]).not.toContain("main");
 		for (const l of levels) {
-			expect(l).toContain("Opus 4");
+			expect(l).toContain("Sonnet 5.5");
 			expect(l).toContain("think:high");
 			expect(l).toContain("84k/200k");
 		}
@@ -80,18 +80,26 @@ describe("status line", () => {
 
 	it("model is `(provider) name`: no dot, the provider shrinks before the name", () => {
 		const d = data();
-		expect(plain(modelSegment(d))).toBe("(anthropic) Opus 4");
-		expect(plain(modelSegment(d, 12))).toBe("(ant… Opus 4"); // the provider shrinks first
-		expect(plain(modelSegment(d, 8))).toBe("Opus 4"); // then goes
-		expect(plain(modelSegment(d, 4))).toBe("Opu…"); // the name is cut last
-		expect(plain(modelSegment(data({ provider: undefined })))).toBe("Opus 4");
+		expect(plain(modelSegment(d))).toBe("(anthropic) Sonnet 5.5");
+		expect(plain(modelSegment(d, 15))).toBe("(an… Sonnet 5.5"); // the provider shrinks first
+		expect(plain(modelSegment(d, 10))).toBe("Sonnet 5.5"); // then goes
+		expect(plain(modelSegment(d, 6))).toBe("Sonne…"); // the name is cut last
+		expect(plain(modelSegment(data({ provider: undefined })))).toBe("Sonnet 5.5");
 	});
 
-	it("only the model is colored (theme accent); metrics, directory and git stay plain or semantic", () => {
+	it("only the model is colored (white, the same on every theme); metrics, directory and git stay plain or semantic", () => {
 		const line = buildLine(data({ theme: tagged, thinkingLevel: "off" }), 0, "│");
-		expect(line).toContain("<accent>(anthropic) Opus 4");
-		expect(line.match(/<accent>/g)).toHaveLength(1);
+		expect(line).toContain("\x1b[38;2;255;255;255m(anthropic) Sonnet 5.5\x1b[39m");
+		expect(line.match(/38;2;255;255;255/g)).toHaveLength(1);
+		expect(line).not.toContain("<accent>");
 		expect(line).toContain("<muted>lumen");
+	});
+
+	it("light themes (theme.appearance) get a black model instead of white", () => {
+		const light = { ...tagged, appearance: "light" } as unknown as RenderData["theme"];
+		const line = buildLine(data({ theme: light, thinkingLevel: "off" }), 0, "│");
+		expect(line).toContain("\x1b[38;2;0;0;0m(anthropic) Sonnet 5.5\x1b[39m");
+		expect(line).not.toContain("38;2;255;255;255");
 	});
 
 	it("a healthy cache hit rate is plain; low ones still warn", () => {

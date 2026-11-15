@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { BLUE, CORAL, YELLOW } from "../src/palette.ts";
 import { countContextFiles, formatTimeAgo, PI_PIXELS, piLogo, renderWelcome, type WelcomeData, type WelcomeTheme } from "../src/welcome.ts";
 
+// oxlint-disable-next-line no-control-regex -- strips terminal escapes
 const plain = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 const theme: WelcomeTheme = { fg: (_c, t) => t, bold: (t) => t, getColorMode: () => "truecolor" };
 const data = (over: Partial<WelcomeData> = {}): WelcomeData => ({
-	modelName: "Claude Opus 4",
+	modelName: "Claude Sonnet 5.5",
 	providerName: "anthropic",
 	version: "1.5.2",
 	recentSessions: [{ name: "lumen", timeAgo: "2h ago" }],
@@ -47,7 +48,7 @@ describe("welcome box", () => {
 	it("shows model, tips, loaded counts and recent sessions", () => {
 		const text = renderWelcome(data(), theme, 100).map(plain).join("\n");
 		expect(text).toContain("Welcome back!");
-		expect(text).toContain("Claude Opus 4");
+		expect(text).toContain("Claude Sonnet 5.5");
 		expect(text).toContain("v1.5.2");
 		expect(text).toContain("/ for commands");
 		expect(text).toContain("2 context files");
@@ -73,8 +74,9 @@ describe("welcome box", () => {
 describe("welcome colors", () => {
 	it("everything but the logo comes from theme tokens, nothing is hard-coded", () => {
 		const tagged: WelcomeTheme = { fg: (c, t) => `<${c}>${t}</>`, bold: (t) => t, getColorMode: () => "truecolor" };
-		const text = renderWelcome(data(), tagged, 100).map(plain).join("\n"); // plain() drops the logo's escapes only
-		expect(text).toContain("<accent>Claude Opus 4</>");
+		// The tags count as visible width here (a real theme's escapes do not), so a shorter name keeps its tag inside the 26-column left column.
+		const text = renderWelcome({ ...data(), modelName: "Sonnet 5.5" }, tagged, 100).map(plain).join("\n"); // plain() drops the logo's escapes only
+		expect(text).toContain("<accent>Sonnet 5.5</>");
 		expect(text).toContain("<mdHeading>Tips</>");
 		expect(text).toContain("<border>Loaded</>");
 		expect(text).toContain("<accent>Recent sessions</>");
