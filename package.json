@@ -2,12 +2,13 @@
   "name": "pi-lumen",
   "version": "0.1.0",
   "description": "Minimal pi extension: powerline-style status line, thinking-level colors, compact tools and transcript timestamps.",
-  "keywords": ["pi-package", "pi", "pi-extension", "statusline", "powerline"],
+  "keywords": ["pi-package", "pi", "pi-extension", "pi-theme", "statusline", "powerline"],
   "license": "MIT",
   "type": "module",
-  "files": ["src", "README.md", "LICENSE", "NOTICE.md"],
+  "files": ["src", "themes", "README.md", "LICENSE", "NOTICE.md"],
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": ["./src/index.ts"],
+    "themes": ["./themes/*.json"]
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

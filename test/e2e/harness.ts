@@ -12,6 +12,7 @@ export const hasTmux = spawnSync("tmux", ["-V"]).status === 0;
 const PI_BIN = process.env.PI_BIN ?? join(homedir(), ".pi/agent/bin/pi");
 export const hasPi = spawnSync(PI_BIN, ["--version"], { timeout: 20_000 }).status === 0;
 const EXT = resolve(import.meta.dirname, "../../src/index.ts");
+const PKG = resolve(import.meta.dirname, "../..");
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -49,6 +50,8 @@ export interface Options {
 	persist?: boolean;
 	/** Extra `--tools` entries (`+grep`, `+find`, `+ls` enable pi's built-in tools that are off by default). */
 	tools?: string[];
+	/** Load pi-lumen as an installed package (`settings.packages`, resources from its manifest) instead of `-e`. */
+	asPackage?: boolean;
 	/** Extra extension files loaded besides pi-lumen. */
 	extensions?: string[];
 }
@@ -94,6 +97,7 @@ export async function startPi(opts: Options): Promise<Session> {
 			defaultThinkingLevel: "medium",
 			quietStartup: true,
 			lumen: { quota: { enabled: false }, icons: "none" },
+			...(opts.asPackage ? { packages: [PKG] } : {}),
 			...opts.settings,
 		}),
 	);
@@ -108,7 +112,7 @@ export async function startPi(opts: Options): Promise<Session> {
 		"COLORTERM=truecolor",
 		"TZ=UTC",
 	];
-	const args = ["--no-extensions", "-e", EXT, ...(opts.extensions ?? []).flatMap((e) => ["-e", e]), ...(opts.tools?.length ? ["--tools", opts.tools.join(",")] : []), "--no-context-files", "--no-skills", ...(opts.persist ? ["--session-dir", join(cwd, ".sessions")] : ["--no-session"]), "--no-mcp", "--tui-mode", opts.tuiMode ?? "fullscreen"];
+	const args = [...(opts.asPackage ? [] : ["--no-extensions", "-e", EXT]), ...(opts.extensions ?? []).flatMap((e) => ["-e", e]), ...(opts.tools?.length ? ["--tools", opts.tools.join(",")] : []), "--no-context-files", "--no-skills", ...(opts.persist ? ["--session-dir", join(cwd, ".sessions")] : ["--no-session"]), "--no-mcp", "--tui-mode", opts.tuiMode ?? "fullscreen"];
 	const cmd = `env ${env.join(" ")} ${PI_BIN} ${args.join(" ")}`;
 	tmux("new-session", "-d", "-s", name, "-x", String(opts.cols ?? 120), "-y", String(opts.rows ?? 50), "-c", cwd, cmd);
 

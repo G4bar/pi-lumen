@@ -5,17 +5,17 @@
  * The layout (rounded box, `Welcome back!`, Tips / Loaded / Recent sessions) follows
  * nicobailon/pi-powerline-footer v0.22.0 (`welcome.ts`), MIT. The logo is NOT that project's block
  * approximation: it is pi's real logo (`pi-logo.js` of pi-coding-agent: 4x4 pixels, coral / blue /
- * yellow), scaled up, and the rest of the box takes its colors from the same three.
+ * yellow), scaled up, in those fixed colors. The rest of the box takes its colors from the theme
+ * (`accent`, `border`, `mdHeading`: coral, blue, yellow in the bundled pi-dark / pi-light themes).
  */
 import { existsSync } from "node:fs";
 import { open, readdir, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import { BLUE, CORAL, paint as paintFg, YELLOW } from "./palette.ts";
+import { BLUE, CORAL, YELLOW } from "./palette.ts";
 import { backgroundAnsi, type Component, foregroundAnsi, type RgbColorValue, type TerminalColorMode, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 // ── pi's logo ────────────────────────────────────────────────────────────────
 
-export { BLUE, CORAL, YELLOW };
 
 type Pixel = RgbColorValue | undefined;
 const C = CORAL;
@@ -82,7 +82,7 @@ export interface WelcomeData {
 
 /** What a theme has to provide for the start screen (a subset of pi's `Theme`). */
 export interface WelcomeTheme {
-	fg(color: "dim" | "muted" | "text", text: string): string;
+	fg(color: "dim" | "accent" | "border" | "mdHeading", text: string): string;
 	bold(text: string): string;
 	getColorMode(): TerminalColorMode;
 }
@@ -115,9 +115,8 @@ function center(text: string, width: number): string {
 /** Pure renderer: every returned line is at most `width` columns wide. */
 export function renderWelcome(data: WelcomeData, theme: WelcomeTheme, width: number): string[] {
 	const mode = theme.getColorMode();
-	const paint = (color: RgbColorValue, text: string) => paintFg(color, text, mode);
 	const dim = (text: string) => theme.fg("dim", text);
-	const wordmark = dim(`Pi${data.version ? ` v${data.version}` : ""}`); // one plain tone: the logo carries the color
+	const wordmark = dim(`Pi${data.version ? ` v${data.version}` : ""}`); // one plain tone: the logo carries the brand colors
 
 	if (width < MIN_LAYOUT) {
 		const [top = "", bottom = ""] = piLogo(mode, 1);
@@ -135,12 +134,12 @@ export function renderWelcome(data: WelcomeData, theme: WelcomeTheme, width: num
 		"",
 		...piLogo(mode).map((l) => center(l, leftCol)),
 		"",
-		center(paint(CORAL, data.modelName), leftCol),
+		center(theme.fg("accent", data.modelName), leftCol),
 		center(dim(data.providerName), leftCol),
 	];
 
 	const separator = ` ${rule(rightCol - 2)}`;
-	const heading = (color: RgbColorValue, text: string) => ` ${theme.bold(paint(color, text))}`;
+	const heading = (color: "accent" | "border" | "mdHeading", text: string) => ` ${theme.bold(theme.fg(color, text))}`;
 	const bullet = dim("- ");
 	const { contextFiles, skills, promptTemplates } = data.loaded;
 	const counts = [
@@ -149,23 +148,23 @@ export function renderWelcome(data: WelcomeData, theme: WelcomeTheme, width: num
 		promptTemplates > 0 && formatCount(promptTemplates, "prompt template"),
 	]
 		.filter((s): s is string => !!s)
-		.map((s) => ` ${bullet}${paint(BLUE, s.split(" ", 1)[0] as string)}${s.slice(s.indexOf(" "))}`);
+		.map((s) => ` ${bullet}${theme.fg("border", s.split(" ", 1)[0] as string)}${s.slice(s.indexOf(" "))}`);
 	const recent = data.recentSessions;
 	const recentLines =
 		recent === undefined
 			? [` ${dim("…")}`]
 			: recent.length === 0
 				? [` ${dim("No recent sessions")}`]
-				: recent.slice(0, 3).map((s) => ` ${dim("• ")}${paint(CORAL, s.name)}${dim(` (${s.timeAgo})`)}`);
+				: recent.slice(0, 3).map((s) => ` ${dim("• ")}${theme.fg("accent", s.name)}${dim(` (${s.timeAgo})`)}`);
 
 	const right = [
-		heading(YELLOW, "Tips"),
+		heading("mdHeading", "Tips"),
 		...data.tips.map((t) => ` ${dim(`${t.key} `)}${t.label}`),
 		separator,
-		heading(BLUE, "Loaded"),
+		heading("border", "Loaded"),
 		...(counts.length > 0 ? counts : [` ${dim("No context files, skills or prompts")}`]),
 		separator,
-		heading(CORAL, "Recent sessions"),
+		heading("accent", "Recent sessions"),
 		...recentLines,
 		"",
 	];

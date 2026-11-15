@@ -25,7 +25,7 @@ back in with `inlineStatusKeys`.
 | Segment | Content |
 |---|---|
 | model | model name `(provider)` |
-| think | level, colored like pi's thinking border; `high`/`xhigh`/`max` cycle through the logo colors |
+| think | level, in the same color as the prompt box border (theme `thinking*` tokens) |
 | context | `84k/200k 42%`, `?/200k` right after compaction; yellow > 70 %, red > 90 % |
 | spend | API key → `$0.42`; subscription login → `5h 37% · 7d 12%` quota when available, otherwise reported cost or `sub` |
 | cache · tps | `CH 81%` (hit rate of the latest request on the active branch; `CH --` after compaction/model change; hidden if the provider never reports cache) · `62 tok/s` |
@@ -57,11 +57,27 @@ Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no AP
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
-**Colors.** Kept low on purpose. Only the model and its provider, `Opus 4 (anthropic)`, are painted, all in pi's
-logo coral (fixed across themes). Context, spend/quota, `tok/s` and cache are plain (dim/muted) and only turn
-warning/error when it matters: context above 70/90 %, quota from 75/90 %, cache hit rate below 70/30 %. The
-directory is plain and git keeps its theme colors (green: clean, yellow: changes). The thinking level is painted by level;
-`high`, `xhigh` and `max` (label and working spinner) cycle through pi's logo colors (coral, blue, yellow) instead of a rainbow.
+**Colors.** Kept low on purpose. Only the model and its provider, `Opus 4 (anthropic)`, are colored (the theme's `accent`).
+Context, spend/quota, `tok/s` and cache are plain (dim/muted) and only turn warning/error when it matters: context
+above 70/90 %, quota from 75/90 %, cache hit rate below 70/30 %. The directory is plain and git keeps its theme
+colors (green: clean, yellow: changes). The thinking level, the working spinner and the prompt box border share one
+color per level: the theme's `thinkingOff` … `thinkingMax` tokens, so that is where to change them.
+
+## Themes
+
+The package ships two themes built on pi's logo colors, coral `#E48A7A`, blue `#4F8EB3` and yellow `#EAB65D`:
+
+| Theme | Base | Mapping |
+|---|---|---|
+| `pi-dark` | Catppuccin Frappé backgrounds | `accent` coral, `border` blue, `mdHeading`/`warning`/`thinkingMedium` yellow |
+| `pi-light` | Catppuccin Latte backgrounds | same hues, darkened until text keeps its contrast |
+
+The thinking scale (prompt box border, `think:` label and spinner) goes from grey (`off`, `minimal`) through blue (`low`) and
+yellow (`medium`) to coral (`high`) and two hotter corals (`xhigh`, `max`). They come with the package (`pi.themes` in `package.json`), so `pi install` / `pi update` puts them in `/settings` → Theme and they can be
+selected at startup. Select one with `/settings`, or follow the
+terminal with `"theme": "pi-light/pi-dark"`. Success, error, diffs and git state keep ordinary green and red so the logo colors
+never stand in for a status. The logo itself keeps its fixed colors on every theme; the start screen and the status line take
+everything else from the theme, so any other theme works too.
 
 Tool rows are not a command, but they have one key: `ctrl+o` (pi's `app.tools.expand`) expands the tool under the cursor
 and `ctrl+o` again collapses it. The hint is on the result row when there is something to show.

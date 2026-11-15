@@ -1,6 +1,6 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
-import { cacheColor, contextColor, quotaColor, rainbow } from "../src/statusline/colors.ts";
+import { cacheColor, contextColor, quotaColor, spinnerFrames, thinkingPaint } from "../src/statusline/colors.ts";
 import { buildLine, fitLine } from "../src/statusline/layout.ts";
 import { formatTokens, modelSegment, type RenderData } from "../src/statusline/segments.ts";
 
@@ -85,13 +85,11 @@ describe("status line", () => {
 		expect(plain(modelSegment(data({ provider: undefined })))).toBe("Opus 4");
 	});
 
-	it("only the model is painted in the logo palette; metrics, directory and git keep theme colors", () => {
-		const line = buildLine(data({ thinkingLevel: "low" }), 0, "│"); // high+ cycles through the palette too
-		const coral = "38;2;228;138;122";
-		expect(modelSegment(data())).toContain(coral);
-		expect(modelSegment(data({ theme: tagged }))).not.toContain("<dim>"); // provider is not dimmed: one color
-		expect(line.indexOf(coral)).toBe(line.lastIndexOf(coral));
-		expect(line).not.toMatch(/38;2;(79;142;179|234;182;93)/);
+	it("only the model is colored (theme accent); metrics, directory and git stay plain or semantic", () => {
+		const line = buildLine(data({ theme: tagged, thinkingLevel: "off" }), 0, "│");
+		expect(line).toContain("<accent>Opus 4 (anthropic)");
+		expect(line.match(/<accent>/g)).toHaveLength(1);
+		expect(line).toContain("<muted>lumen");
 	});
 
 	it("a healthy cache hit rate is plain; low ones still warn", () => {
@@ -135,11 +133,14 @@ describe("colors and formatting", () => {
 		expect(cacheColor(69)).toBe("warning");
 		expect(cacheColor(70)).toBe("success");
 	});
-	it("rainbow keeps visible text and width", () => {
-		const r = rainbow("think:max");
-		expect(plain(r)).toBe("think:max");
-		expect(visibleWidth(r)).toBe(9);
+	it("think label and spinner use the prompt box border color of the level", () => {
+		const t = { ...theme, getThinkingBorderColor: (l: string) => (x: string) => `<${l}>${x}` } as unknown as RenderData["theme"];
+		for (const level of ["off", "low", "high", "xhigh", "max"]) {
+			expect(thinkingPaint(t, level)("think")).toBe(`<${level}>think`);
+			for (const frame of spinnerFrames(t, level)) expect(frame.startsWith(`<${level}>`)).toBe(true);
+		}
 	});
+
 	it("formatTokens", () => {
 		expect(formatTokens(950)).toBe("950");
 		expect(formatTokens(84_000)).toBe("84k");

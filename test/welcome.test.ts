@@ -1,6 +1,7 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
-import { BLUE, CORAL, countContextFiles, formatTimeAgo, PI_PIXELS, piLogo, renderWelcome, type WelcomeData, type WelcomeTheme, YELLOW } from "../src/welcome.ts";
+import { BLUE, CORAL, YELLOW } from "../src/palette.ts";
+import { countContextFiles, formatTimeAgo, PI_PIXELS, piLogo, renderWelcome, type WelcomeData, type WelcomeTheme } from "../src/welcome.ts";
 
 const plain = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 const theme: WelcomeTheme = { fg: (_c, t) => t, bold: (t) => t, getColorMode: () => "truecolor" };
@@ -66,6 +67,17 @@ describe("welcome box", () => {
 		const lines = renderWelcome(data(), theme, 30);
 		expect(lines).toHaveLength(2);
 		expect(plain(lines[0] as string)).toContain("Pi");
+	});
+});
+
+describe("welcome colors", () => {
+	it("everything but the logo comes from theme tokens, nothing is hard-coded", () => {
+		const tagged: WelcomeTheme = { fg: (c, t) => `<${c}>${t}</>`, bold: (t) => t, getColorMode: () => "truecolor" };
+		const text = renderWelcome(data(), tagged, 100).map(plain).join("\n"); // plain() drops the logo's escapes only
+		expect(text).toContain("<accent>Claude Opus 4</>");
+		expect(text).toContain("<mdHeading>Tips</>");
+		expect(text).toContain("<border>Loaded</>");
+		expect(text).toContain("<accent>Recent sessions</>");
 	});
 });
 

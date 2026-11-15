@@ -213,3 +213,21 @@ describe.skipIf(!hasTmux || !hasPi)("start screen", () => {
 		expect(s.screen()).not.toContain("Welcome back!");
 	});
 });
+
+describe.skipIf(!hasTmux || !hasPi)("bundled themes", () => {
+	const h = useSession();
+
+	it.each([
+		["pi-dark", "38;2;228;138;122"],
+		["pi-light", "38;2;184;74;56"],
+	])("%s: comes with the installed package (manifest), selectable at startup; model in the accent coral, logo in the fixed brand colors", async (theme, coral) => {
+		const s = await h.start({ responder: respond([]), settings: { theme }, asPackage: true });
+		await s.waitFor(/Welcome back!/);
+		await s.waitFor(/think:/);
+		const screen = s.screenAnsi();
+		const status = screen.split("\n").at(-1) ?? "";
+		expect(status).toContain(coral);
+		expect(screen).toContain("38;2;228;138;122"); // logo coral, the same on both themes
+		expect(screen).toContain("38;2;79;142;179"); // logo blue
+	});
+});

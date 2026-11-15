@@ -3,7 +3,6 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { GitCounts } from "../git.ts";
 import type { Quota } from "../quota.ts";
-import { CORAL, colorMode, paint } from "../palette.ts";
 import { ASCII } from "./icons.ts";
 import { cacheColor, contextColor, quotaColor, thinkingPaint } from "./colors.ts";
 
@@ -24,20 +23,17 @@ export interface RenderData {
 	extStatuses: string[];
 }
 
-/** Neutral text in one of pi's logo colors. */
-const logo = (d: RenderData, color: typeof CORAL, text: string): string => paint(color, text, colorMode(d.theme));
-
 export function formatTokens(n: number): string {
 	if (n < 1000) return String(n);
 	if (n < 1_000_000) return `${n >= 100_000 ? Math.round(n / 1000) : Math.round(n / 100) / 10}k`.replace(".0k", "k");
 	return `${Math.round(n / 100_000) / 10}M`.replace(".0M", "M");
 }
 
-/** `Opus 4 (anthropic)`, all in coral; when it does not fit the end (the provider) is cut first. */
+/** `Opus 4 (anthropic)`, all in the theme accent (coral in the pi themes); when it does not fit the end (the provider) is cut first. */
 export function modelSegment(d: RenderData, maxWidth?: number): string {
 	const name = (d.modelName ?? "no-model").replace(/^Claude\s+/i, "");
 	const full = `${d.icons === "ascii" ? ASCII.model : ""}${name}${d.provider ? ` (${d.provider})` : ""}`;
-	return logo(d, CORAL, maxWidth !== undefined ? truncateToWidth(full, Math.max(1, maxWidth), "…") : full);
+	return d.theme.fg("accent", maxWidth !== undefined ? truncateToWidth(full, Math.max(1, maxWidth), "…") : full);
 }
 
 export function thinkSegment(d: RenderData): string {
