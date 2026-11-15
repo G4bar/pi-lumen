@@ -38,7 +38,7 @@ export function registerRead(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 	const base = createReadToolDefinition(process.cwd());
 	pi.registerTool({
 		...base,
-		renderShell: "default",
+		renderShell: "self",
 		execute: (id, params, signal, onUpdate, ctx) => createReadToolDefinition(ctx.cwd, builtinToolOptions(pi).read).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
 			let range = "";

@@ -77,8 +77,7 @@ options pi passes to the built-ins (`shellCommandPrefix`, `shellPath`, `images.a
 
 - **Changes are always visible.** `edit` shows the diff and `write` the written content, syntax-highlighted
   (Shiki, like `read`) with a right-aligned line-number gutter: `N │` context, `N -` removed (red), `N +` added (green),
-  `⋯` for skipped context. Removed/added `edit` rows get a background (the theme's diff colors mixed into the tool box
-  background, to the edge of the terminal) and the words that changed a stronger one; truecolor and a theme with
+  `⋯` for skipped context. All lumen tool rows (`read`, `bash`, `edit`, `write`) have no tool box behind them (pi's green/grey box hid the tints and showed holes behind `…`), so they sit on the terminal background; the status dot and `exit N` carry success/error. Removed/added `edit` rows get a background (the theme's diff colors mixed into a grey of the tool box's brightness, to the edge of the terminal) and the words that changed a stronger one; truecolor and a theme with
   `toolSuccessBg` only, otherwise the foreground-only look. Right under the result row, up to `tools.changeLines` (12) rows; `ctrl+o` shows up to `tools.previewLines` (40).
   The expand hint only appears when something is hidden.
 - **Hint on the result row** (`ctrl+o to expand`, from pi's own keybinding), so a collapsed tool is two lines.

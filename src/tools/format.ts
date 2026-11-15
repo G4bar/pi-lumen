@@ -23,11 +23,27 @@ const MAX_ARG = 110;
 const RULE = "\u0001";
 const INDENT = 2;
 
-/** `FILL_OPEN + <bg SGR> + FILL_CLOSE` at the end of a row: Block pads the row to the full width with that background. */
+/**
+ * `FILL_OPEN + <bg SGR> [+ FILL_SEP + <restore SGR>] + FILL_CLOSE` at the end of a row: Block pads the row to the full
+ * width with that background, then switches to `restore` (the tool box background) so the box's own right padding
+ * column keeps the box color instead of showing a hole.
+ */
 const FILL_OPEN = "\u0002";
+const FILL_SEP = "\u0004";
 const FILL_CLOSE = "\u0003";
-const FILL_RE = /\u0002([^\u0003]*)\u0003/;
-export const fillRow = (row: string, bgOpen: string): string => `${row}${FILL_OPEN}${bgOpen}${FILL_CLOSE}`;
+const FILL_RE = /\u0002([^\u0003\u0004]*)\u0004?([^\u0003]*)\u0003/;
+export const fillRow = (row: string, bgOpen: string, restore = ""): string => `${row}${FILL_OPEN}${bgOpen}${restore ? FILL_SEP + restore : ""}${FILL_CLOSE}`;
+
+/**
+ * SGR that clears every attribute and the foreground but NOT the background (`22 23 24 25 27 28 29 39`).
+ * pi paints the tool box background around the whole padded row, so a full reset (`ESC[0m`, which
+ * `truncateToWidth` emits around its ellipsis) would leave the rest of the row, ellipsis and right padding included,
+ * on the terminal's default background.
+ */
+const SOFT_RESET = "\x1b[22;23;24;25;27;28;29;39m";
+const FULL_RESET_RE = /\x1b\[0?m/g;
+/** Replace full resets with `SOFT_RESET` so the surrounding background survives. */
+export const keepBackground = (s: string): string => s.replace(FULL_RESET_RE, SOFT_RESET);
 
 /**
  * Row block that fits whatever width pi renders it at: every row is cut to the width with `…` (rows never wrap into
@@ -38,27 +54,32 @@ export class Block implements Component {
 	constructor(
 		private content: Content = "",
 		private wrap = false,
+		private pad = 0,
 	) {}
-	set(content: Content, wrap: boolean): void {
+	set(content: Content, wrap: boolean, pad = 0): void {
 		this.content = content;
 		this.wrap = wrap;
+		this.pad = pad;
 	}
 	invalidate(): void {}
 	render(width: number): string[] {
-		const w = Math.max(1, width);
+		const margin = " ".repeat(this.pad);
+		return this.rows(Math.max(1, width - 2 * this.pad)).map((r) => (margin ? `${margin}${r}` : r));
+	}
+	private rows(w: number): string[] {
 		const text = (typeof this.content === "function" ? this.content(w) : this.content).replace(/\t/g, "   ");
 		if (!text.trim()) return [];
 		return text.split("\n").flatMap((row) => {
 			if (row.includes(RULE)) return [row.replace(RULE, "─".repeat(Math.max(1, w - INDENT)))];
 			const fill = FILL_RE.exec(row);
 			if (fill) {
-				const cut = truncateToWidth(row.replace(FILL_RE, ""), w, "…");
-				return [`${cut}${fill[1]}${" ".repeat(Math.max(0, w - visibleWidth(cut)))}\x1b[0m`];
+				const cut = keepBackground(truncateToWidth(row.replace(FILL_RE, ""), w, "…"));
+				return [`${cut}${fill[1]}${" ".repeat(Math.max(0, w - visibleWidth(cut)))}${fill[2] || SOFT_RESET}`];
 			}
-			if (!this.wrap) return [truncateToWidth(row, w, "…")];
+			if (!this.wrap) return [keepBackground(truncateToWidth(row, w, "…"))];
 			// Wrapped continuations are indented so they stay under the row they belong to.
 			const [first = "", ...rest] = wrapTextWithAnsi(row, Math.max(1, w - INDENT));
-			return [first, ...rest.map((r) => `${" ".repeat(INDENT)}${r}`)];
+			return [first, ...rest.map((r) => `${" ".repeat(INDENT)}${r}`)].map(keepBackground);
 		});
 	}
 }
@@ -73,10 +94,13 @@ export function prefixed(prefix: string, text: string, width: number, wrap: bool
 	return (text === "" ? [""] : wrapTextWithAnsi(text, room)).map((piece) => `${prefix}${piece}`);
 }
 
-/** Reuse the previous Block instance when possible. */
-export function textOf(ctx: { lastComponent: unknown }, content: Content, wrap = false): Block {
+/**
+ * Reuse the previous Block instance when possible. Every lumen tool uses `renderShell: "self"`: pi paints no box
+ * background behind the rows and leaves the horizontal `outputPad` to the renderer, so the Block applies it itself.
+ */
+export function textOf(ctx: { lastComponent: unknown; outputPad?: number }, content: Content, wrap = false): Block {
 	const t = ctx.lastComponent instanceof Block ? ctx.lastComponent : new Block();
-	t.set(content, wrap);
+	t.set(content, wrap, ctx.outputPad ?? 1);
 	return t;
 }
 

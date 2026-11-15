@@ -1,14 +1,15 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { Box, visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 import { loadBootSettings } from "../src/config.ts";
 import { RowThinking } from "../src/thinking-label.ts";
-import { Block, changeBody, framed, framedLines, prefixed } from "../src/tools/format.ts";
+import { Block, textOf, changeBody, fillRow, framed, framedLines, prefixed } from "../src/tools/format.ts";
 import { outputLines } from "../src/tools/bash.ts";
 import { builtinToolOptions } from "../src/tools/options.ts";
 import { bgTints, changedSpans, diffRows, parseDiff, type Tints, tintLine, writeRows } from "../src/tools/changes.ts";
+import { describeArgs, displayName, flatten } from "../src/tools/uniform.ts";
 import { paintLines, shikiPainter, shikiThemeName } from "../src/tools/highlight.ts";
 import { codeBody, splitRead } from "../src/tools/read.ts";
 import { fgParams, isLowContrast, languageFor, tokensToAnsi } from "../src/tools/shiki.ts";
@@ -166,6 +167,81 @@ describe("Block (narrow terminals)", () => {
 	});
 });
 
+describe("Block inside pi's tool box (background survives)", () => {
+	const BOX = "\x1b[48;2;20;60;30m";
+	/** What pi does: paint `BOX` behind the padded row and close it at the end. */
+	const inBox = (child: Block, width: number) => {
+		const box = new Box(1, 1, (t: string) => `${BOX}${t}\x1b[49m`);
+		box.addChild(child);
+		return box.render(width);
+	};
+	/** Background in effect at each visible column, following SGR 48;2 / 49 / 0 / bare. */
+	const bgPerColumn = (row: string): (string | undefined)[] => {
+		const out: (string | undefined)[] = [];
+		let bg: string | undefined;
+		for (let i = 0; i < row.length; ) {
+			const m = /^\x1b\[([0-9;]*)m/.exec(row.slice(i));
+			if (m) {
+				const p = m[1] ?? "";
+				if (p === "" || p === "0" || p === "49") bg = undefined;
+				else if (p.startsWith("48;2;")) bg = p;
+				i += m[0].length;
+			} else {
+				out.push(bg);
+				i++;
+			}
+		}
+		return out;
+	};
+	it("a truncated row keeps the box background behind the `…` and to the right edge", () => {
+		const rows = inBox(new Block("a ".repeat(40) + "tail"), 30);
+		const row = rows[1] ?? "";
+		expect(row).toContain("…");
+		expect(bgPerColumn(row).every((b) => b === "48;2;20;60;30")).toBe(true);
+	});
+	it("wrapped and fully reset content keeps it too", () => {
+		for (const row of inBox(new Block("\x1b[31mred\x1b[0m plain words that wrap around ".repeat(3), true), 30)) {
+			expect(bgPerColumn(row).every((b) => b === "48;2;20;60;30")).toBe(true);
+		}
+	});
+	it("a changed row is tinted up to the edge, then the box color returns for its right padding", () => {
+		const tint = "\x1b[48;2;80;40;40m";
+		const row = inBox(new Block(`  ${fillRow(`${tint}1 - removed`, tint, BOX)}`), 30)[1] ?? "";
+		const cols = bgPerColumn(row);
+		expect(cols).toHaveLength(30);
+		expect(cols[0]).toBe("48;2;20;60;30"); // box margin
+		expect(cols[5]).toBe("48;2;80;40;40"); // tint
+		expect(cols[28]).toBe("48;2;80;40;40");
+		expect(cols[29]).toBe("48;2;20;60;30"); // right padding: box color, not a hole
+	});
+	it("a truncated changed row keeps the tint behind the `…`", () => {
+		const tint = "\x1b[48;2;80;40;40m";
+		const row = inBox(new Block(`  ${fillRow(`${tint}1 - ${"x".repeat(60)}`, tint, BOX)}`), 30)[1] ?? "";
+		const cols = bgPerColumn(row);
+		expect(row).toContain("…");
+		expect(cols.slice(3, 29).every((b) => b === "48;2;80;40;40")).toBe(true);
+		expect(cols.every((b) => b !== undefined)).toBe(true);
+	});
+});
+
+describe("flat rows (renderShell: self)", () => {
+	it("textOf pads with the outputPad pi passes (default 1)", () => {
+		expect(textOf({ lastComponent: undefined }, "x").render(10)[0]).toBe(" x");
+		expect(textOf({ lastComponent: undefined, outputPad: 0 }, "x").render(10)[0]).toBe("x");
+	});
+	it("Block applies the horizontal pad itself and renders inside the remaining width", () => {
+		const rows = new Block("x".repeat(40), false, 2).render(20);
+		expect(rows[0]?.startsWith("  x")).toBe(true);
+		expect(visibleWidth(rows[0] ?? "")).toBeLessThanOrEqual(18);
+	});
+	it("a changed row returns to the default background (not a box color) after its tint", () => {
+		const t = { fg: (_c: string, s: string) => s, bold: (s: string) => s, getBgAnsi: () => "\x1b[48;2;40;40;40m", getFgAnsi: () => "\x1b[38;2;100;200;100m" } as never;
+		expect(bgTints(t, true)?.box).toBe("\x1b[49m");
+		const { rows } = diffRows(t, ["-1 a", "+1 b"].join("\n"), "x.txt", 9);
+		expect(new Block(`  ${rows[0]}`).render(20)[0]?.endsWith("\x1b[49m")).toBe(true);
+	});
+});
+
 describe("changeBody", () => {
 	const theme = { fg: (_c: string, s: string) => s } as never;
 	it("shows changes by default, caps them, and only offers expansion when something is hidden", () => {
@@ -292,6 +368,7 @@ describe("bgTints / diffRows backgrounds", () => {
 	const dark = mk("\x1b[48;2;40;40;40m", "\x1b[38;2;100;200;100m", "\x1b[38;2;200;100;100m");
 	it("mixes the added/removed foreground into the box's grey: lightly for the row, more for changed words", () => {
 		const t = bgTints(dark) as Tints;
+		expect(t.box).toBe("\x1b[48;2;40;40;40m");
 		expect(t.add.base).toBe("\x1b[48;2;55;80;55m"); // 40 + (100-40)*0.25 = 55, 40 + (200-40)*0.25 = 80
 		expect(t.add.strong).toBe("\x1b[48;2;70;120;70m"); // 40 + 60*0.5, 40 + 160*0.5
 		expect(t.del.base).toBe("\x1b[48;2;80;55;55m");
@@ -364,5 +441,45 @@ describe("paintLines / shikiPainter", () => {
 		expect(paint("x")).toBeUndefined();
 		await new Promise((r) => setTimeout(r, 300));
 		expect(paint("x")).toBeUndefined();
+	});
+});
+
+describe("uniform rows for foreign tools", () => {
+	const cfg = (() => ({ tools: { time: false, previewLines: 40 } })) as never;
+	const theme = { fg: (_c: string, s: string) => s, bold: (s: string) => s } as never;
+	const ctx = (extra: object = {}) => ({ lastComponent: undefined, isPartial: false, isError: false, expanded: false, durationMs: undefined, keyHint: () => "ctrl+o to expand", outputPad: 1, ...extra }) as never;
+	it("names and main arguments", () => {
+		expect(displayName("mcp__docs__search")).toBe("docs/search");
+		expect(displayName("grep")).toBe("Grep");
+		expect(describeArgs({ pattern: "foo", path: "src" })).toBe("foo in src");
+		expect(describeArgs({ path: "src" })).toBe("src");
+		expect(describeArgs({ n: 1 })).toBe('{"n":1}');
+		expect(describeArgs(undefined)).toBe("");
+	});
+	it("a tool without renderers gets the generic flat rows", () => {
+		const r = flatten("plain_demo", undefined, cfg);
+		expect(r?.renderShell).toBe("self");
+		const call = r?.renderCall?.({ query: "q" } as never, theme, ctx());
+		expect(call?.render(40)[0]).toContain("Plain_demo (q)");
+		const res = r?.renderResult?.({ content: [{ type: "text", text: "a\nb\nc" }], details: {} } as never, { expanded: false, isPartial: false }, theme, ctx());
+		expect(res?.render(60).join("\n")).toContain("3 lines");
+	});
+	it("renderers of their own are kept but wrapped flat, padded and reused", () => {
+		const base = { renderCall: (_a: unknown, _t: unknown, c: { lastComponent: unknown }) => textOf({ lastComponent: c.lastComponent, outputPad: 0 }, "inner") } as never;
+		const r = flatten("custom", base, cfg);
+		expect(r?.renderShell).toBe("self");
+		const first = r?.renderCall?.({} as never, theme, ctx());
+		expect(first?.render(10)[0]).toBe(" inner");
+		const second = r?.renderCall?.({} as never, theme, ctx({ lastComponent: first }));
+		expect(second).toBe(first);
+	});
+	it("grep/find/ls get the summary row even though pi has renderers for them", () => {
+		const base = { renderCall: () => textOf({ lastComponent: undefined }, "inline") } as never;
+		const call = flatten("grep", base, cfg)?.renderCall?.({ pattern: "p", path: "src" } as never, theme, ctx());
+		expect(call?.render(40)[0]).toContain("Grep (p in src)");
+	});
+	it("tools that draw their own shell are left alone", () => {
+		const own = { renderShell: "self" } as never;
+		expect(flatten("x", own, cfg)).toBe(own);
 	});
 });

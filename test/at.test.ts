@@ -48,9 +48,9 @@ describe("tool row time", () => {
 		expect(Object.keys(bare.details)).toEqual(["lumenAt"]);
 	});
 
-	it("leaves other tools, odd details and disabled config alone", () => {
+	it("times every tool, but leaves odd details and disabled config alone", () => {
 		const h = harness(true);
-		expect(h.tool_result?.({ toolCallId: "1", toolName: "grep", details: {} })).toBeUndefined();
+		expect((h.tool_result?.({ toolCallId: "1", toolName: "grep", details: {} }) as { details: Record<string, unknown> }).details.lumenAt).toBeTypeOf("number");
 		expect(h.tool_result?.({ toolCallId: "2", toolName: "bash", details: [1] })).toBeUndefined();
 		expect(harness(false).tool_result?.({ toolCallId: "3", toolName: "bash", details: {} })).toBeUndefined();
 	});

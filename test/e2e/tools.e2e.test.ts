@@ -347,3 +347,48 @@ describe.skipIf(!hasTmux || !hasPi)("tool row chrome", () => {
 		expect(s.screen()).toContain("Tool frobnicate not found");
 	});
 });
+
+describe.skipIf(!hasTmux || !hasPi)("foreign tools look like ours", () => {
+	const h = useSession();
+	/** Rows of pi's built-in grep/find/ls (off by default: `--tools +grep,+find,+ls`). */
+	const builtin = async (steps: Step[]) => {
+		const s = await h.start({ responder: responder(steps), files, tools: ["+grep", "+find", "+ls"] });
+		s.send("go");
+		await s.waitFor("fine", 30_000);
+		await s.settle();
+		return s;
+	};
+	const cases = [
+		{ name: "grep", args: { pattern: "line 2", path: "a.txt" }, header: /● Grep \(line 2 in a\.txt\)/, summary: /└ 1 line/ },
+		{ name: "find", args: { pattern: "*.txt", path: "." }, header: /● Find \(\*\.txt in \.\)/, summary: /└ [2-9] lines/ },
+		{ name: "ls", args: { path: "." }, header: /● Ls \(\.\)/, summary: /└ [2-9] lines/ },
+	];
+	for (const { name, args, header, summary } of cases) {
+		it(`built-in ${name}: compact flat rows (● header, └ summary), no tool box background`, async () => {
+			const s = await builtin(call(name, args));
+			const screen = s.screen();
+			expect(screen).toMatch(header);
+			expect(screen).toMatch(summary);
+			expect(ansiLine(s, "● ")).not.toMatch(/\x1b\[48;/);
+			expect(ansiLine(s, "└")).not.toMatch(/\x1b\[48;/);
+		});
+	}
+	it("ctrl+o expands the results of a built-in tool between rules", async () => {
+		const s = await builtin(call("find", { pattern: "*.txt", path: "." }));
+		s.press("C-o");
+		await s.waitFor("to collapse", 10_000);
+		expect(s.screen()).toMatch(/─\n\s+a\.txt\n\s+big\.txt\n\s+num\.txt\n\s+─/);
+	});
+	const EXT = join(import.meta.dirname, "fixtures/plain-tool-ext.ts");
+	it("a tool without renderers gets the compact flat rows and no tool box background", async () => {
+		const s = await h.start({ responder: responder(call("plain_demo", { query: "hello" })), extensions: [EXT] });
+		s.send("go");
+		await s.waitFor("fine", 30_000);
+		await s.settle();
+		const screen = s.screen();
+		expect(screen).toMatch(/● Plain_demo \(hello\)/);
+		expect(screen).toMatch(/└ 3 lines/);
+		expect(ansiLine(s, "Plain_demo")).not.toMatch(/\x1b\[48;/);
+		expect(ansiLine(s, "3 lines")).not.toMatch(/\x1b\[48;/);
+	});
+});

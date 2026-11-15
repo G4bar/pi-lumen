@@ -156,7 +156,7 @@ describe.skipIf(!hasTmux || !hasPi)("edit: row backgrounds and changed words", (
 	const edit = call("edit", { path: "code.ts", edits: [{ oldText: "\treturn `hi ${name}` + n;", newText: "\treturn `hello ${name}` + n * 2;" }] });
 	const dark = withTheme("dark");
 
-	it("removed/added rows get a tint of their own color on top of the box background; context rows keep the box's", async () => {
+	it("removed/added rows get a tint of their own color; context rows stay on the plain terminal background", async () => {
 		const s = await run(h, edit, { "code.ts": src }, dark);
 		const added = await waitHighlighted(s, "hello");
 		const removed = ansiLine(s, "`hi ");
@@ -185,10 +185,10 @@ describe.skipIf(!hasTmux || !hasPi)("edit: row backgrounds and changed words", (
 		const s = await run(h, edit, { "code.ts": src }, dark);
 		const added = await waitHighlighted(s, "hello");
 		const [base] = tints(added);
-		expect(strip(added).length).toBeGreaterThanOrEqual(118); // pi's box leaves a margin on each side
+		expect(strip(added).length).toBeGreaterThanOrEqual(118); // a one-column margin on each side
 		expect(strip(added)).toMatch(/;\s{20,}$/); // padding after the last character…
 		expect(bgColors(added).at(-1)).toBe(base); // …under the row background, not the strong one
-		expect(added.trimEnd().endsWith("\x1b[49m")).toBe(true);
+		expect(added).not.toContain(`48;2;${BOX.dark}`); // edit/write rows sit on the terminal background, not on pi's tool box
 	});
 
 	it("light theme: the tint is a darker green/red on the pale box, the text is still readable", async () => {

@@ -47,6 +47,8 @@ export interface Options {
 	tuiMode?: "fullscreen" | "regular";
 	/** Persist the session under `<project>/.sessions` (default: `--no-session`). */
 	persist?: boolean;
+	/** Extra `--tools` entries (`+grep`, `+find`, `+ls` enable pi's built-in tools that are off by default). */
+	tools?: string[];
 	/** Extra extension files loaded besides pi-lumen. */
 	extensions?: string[];
 }
@@ -106,18 +108,18 @@ export async function startPi(opts: Options): Promise<Session> {
 		"COLORTERM=truecolor",
 		"TZ=UTC",
 	];
-	const args = ["--no-extensions", "-e", EXT, ...(opts.extensions ?? []).flatMap((e) => ["-e", e]), "--no-context-files", "--no-skills", ...(opts.persist ? ["--session-dir", join(cwd, ".sessions")] : ["--no-session"]), "--no-mcp", "--tui-mode", opts.tuiMode ?? "fullscreen"];
+	const args = ["--no-extensions", "-e", EXT, ...(opts.extensions ?? []).flatMap((e) => ["-e", e]), ...(opts.tools?.length ? ["--tools", opts.tools.join(",")] : []), "--no-context-files", "--no-skills", ...(opts.persist ? ["--session-dir", join(cwd, ".sessions")] : ["--no-session"]), "--no-mcp", "--tui-mode", opts.tuiMode ?? "fullscreen"];
 	const cmd = `env ${env.join(" ")} ${PI_BIN} ${args.join(" ")}`;
 	tmux("new-session", "-d", "-s", name, "-x", String(opts.cols ?? 120), "-y", String(opts.rows ?? 50), "-c", cwd, cmd);
 
 	const capture = (ansi: boolean, scrollback: boolean): string => {
 		const a = ["capture-pane", "-p", "-J", "-t", name];
-		if (ansi) a.push("-e");
+		if (ansi) a.push("-e", "-N");
 		if (scrollback) a.push("-S", "-");
 		try {
 			return tmux(...a)
 				.split("\n")
-				.map((l) => l.trimEnd())
+				.map((l) => (ansi ? l : l.trimEnd())) // -N keeps trailing cells: their backgrounds matter in ANSI captures
 				.join("\n")
 				.trimEnd();
 		} catch {

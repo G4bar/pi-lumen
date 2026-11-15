@@ -25,8 +25,9 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 	const edit = createEditToolDefinition(process.cwd());
 	pi.registerTool({
 		...edit,
-		// The built-in edit renders its own shell; compact rows use the default themed box instead.
-		renderShell: "default",
+		// No box behind the rows (same for read/bash): pi's green/grey tool background hides the added/removed row
+		// tints, so rows sit on the terminal background and Block applies `outputPad` itself.
+		renderShell: "self",
 		execute: (id, params, signal, onUpdate, ctx) => createEditToolDefinition(ctx.cwd).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
 			const n = Array.isArray(args.edits) ? args.edits.length : 0;
@@ -51,7 +52,7 @@ export function registerEditWrite(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 	const write = createWriteToolDefinition(process.cwd());
 	pi.registerTool({
 		...write,
-		renderShell: "default",
+		renderShell: "self",
 		execute: (id, params, signal, onUpdate, ctx) => createWriteToolDefinition(ctx.cwd).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
 			return textOf(ctx, callLine(theme, ctx, "Write", args.path ?? ""), ctx.expanded);

@@ -8,8 +8,6 @@ import type { LumenConfig } from "../config.ts";
 import { formatClock, formatDay } from "../time.ts";
 
 export const AT_KEY = "lumenAt";
-/** Tools whose rows pi-lumen renders (the only ones that can show the time). */
-export const TIMED_TOOLS: ReadonlySet<string> = new Set(["read", "bash", "edit", "write"]);
 const MAX_PENDING = 256;
 
 const isPlain = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -48,14 +46,13 @@ export function registerToolTimes(pi: ExtensionAPI, getCfg: () => LumenConfig): 
 		marker = Date.now();
 	});
 	pi.on("tool_execution_start", (e) => {
-		if (!TIMED_TOOLS.has(e.toolName)) return;
 		if (started.size >= MAX_PENDING) started.delete(started.keys().next().value as string);
 		started.set(e.toolCallId, Date.now());
 	});
 	pi.on("tool_result", (e) => {
 		const at = started.get(e.toolCallId) ?? Date.now();
 		started.delete(e.toolCallId);
-		if (!getCfg().tools.time || !TIMED_TOOLS.has(e.toolName)) return undefined;
+		if (!getCfg().tools.time) return undefined;
 		const details: unknown = e.details;
 		if (details !== undefined && !isPlain(details)) return undefined; // never reshape unknown details
 		if (!showsTime(at, marker, getCfg().tools.timeGapSec * 1000)) return undefined;

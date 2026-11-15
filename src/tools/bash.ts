@@ -25,7 +25,7 @@ export function registerBash(pi: ExtensionAPI, getCfg: () => LumenConfig): void 
 	const base = createBashToolDefinition(process.cwd());
 	pi.registerTool({
 		...base,
-		renderShell: "default",
+		renderShell: "self",
 		execute: (id, params, signal, onUpdate, ctx) => createBashToolDefinition(ctx.cwd, builtinToolOptions(pi).bash).execute(id, params, signal, onUpdate, ctx),
 		renderCall(args, theme, ctx) {
 			const timeout = args.timeout ? `timeout ${args.timeout}s` : "";

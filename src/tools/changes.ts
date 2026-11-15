@@ -43,6 +43,8 @@ export interface Tint {
 export interface Tints {
 	add: Tint;
 	del: Tint;
+	/** Background to return to after a tinted row: the tool box's own (so its right padding is not left uncolored), or the default one (`ESC[49m`) without a box. */
+	box: string;
 }
 
 const bgOpen = (c: Rgb): string => `\x1b[48;2;${Math.round(c[0])};${Math.round(c[1])};${Math.round(c[2])}m`;
@@ -64,7 +66,7 @@ const STRONG_MIX = 0.5;
  * changed. Derived from the theme, so it suits dark and light themes alike. Truecolor only, and
  * only if the theme has a box background; anything else keeps the foreground-only look.
  */
-export function bgTints(theme: Theme): Tints | undefined {
+export function bgTints(theme: Theme, flat = false): Tints | undefined {
 	try {
 		const box = rgbOf(theme.getBgAnsi("toolSuccessBg"), 48);
 		const add = rgbOf(theme.getFgAnsi("toolDiffAdded"), 38);
@@ -73,7 +75,7 @@ export function bgTints(theme: Theme): Tints | undefined {
 		const lum = 0.2126 * box[0] + 0.7152 * box[1] + 0.0722 * box[2];
 		const grey: Rgb = [lum, lum, lum];
 		const tint = (fg: Rgb): Tint => ({ base: bgOpen(mix(grey, fg, BASE_MIX)), strong: bgOpen(mix(grey, fg, STRONG_MIX)) });
-		return { add: tint(add), del: tint(del) };
+		return { add: tint(add), del: tint(del), box: flat ? "\x1b[49m" : bgOpen(box) };
 	} catch {
 		return undefined; // themes without color lookup (or a lookup that throws)
 	}
@@ -215,7 +217,7 @@ const visibleLength = (s: string): number => s.replace(/\x1b\[[0-9;]*m/g, "").le
  * multi-line strings and comments tokenize in context. With `tints`, changed rows get a background that runs to
  * the edge of the terminal and the words that changed a stronger one.
  */
-export function diffRows(theme: Theme, diff: string, path: string, max: number, shiki?: ShikiPaint, tints: Tints | undefined = bgTints(theme)): { rows: string[]; total: number } {
+export function diffRows(theme: Theme, diff: string, path: string, max: number, shiki?: ShikiPaint, tints: Tints | undefined = bgTints(theme, true)): { rows: string[]; total: number } {
 	const all = parseDiff(diff);
 	const shown = all.slice(0, max);
 	const paintSide = (keep: (e: DiffEntry) => boolean): Map<DiffEntry, string> => {
@@ -234,7 +236,7 @@ export function diffRows(theme: Theme, diff: string, path: string, max: number, 
 		const tint = tints && (e.kind === "add" || e.kind === "del") ? tints[e.kind] : undefined;
 		if (!tint) return `${gutter} ${code}`;
 		const span = visibleLength(code) === e.text.length ? spans.get(e) : undefined; // painter must not alter the text
-		return fillRow(`${tint.base}${gutter} ${tintLine(code, tint, span)}`, tint.base);
+		return fillRow(`${tint.base}${gutter} ${tintLine(code, tint, span)}`, tint.base, tints?.box);
 	});
 	return { rows, total: all.length };
 }
