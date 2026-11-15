@@ -139,7 +139,7 @@ describe("colors and formatting", () => {
 		expect(visibleWidth(r)).toBe(9);
 	});
 
-	it("below `high` the label and spinner use the prompt box border color; from `high` up they are multicolor", () => {
+	it("below `high` the label and spinner use the prompt box border color; from `high` up they cycle through the logo colors", () => {
 		const t = { ...theme, getThinkingBorderColor: (l: string) => (x: string) => `<${l}>${x}` } as unknown as RenderData["theme"];
 		for (const level of ["off", "minimal", "low", "medium"]) {
 			expect(thinkingPaint(t, level)("think")).toBe(`<${level}>think`);
@@ -147,7 +147,7 @@ describe("colors and formatting", () => {
 		}
 		for (const level of ["high", "xhigh", "max"]) {
 			expect(thinkingPaint(t, level)("think")).toBe(rainbow("think"));
-			expect(new Set(spinnerFrames(t, level).map((f) => f.slice(0, 19))).size).toBeGreaterThan(3);
+			expect(new Set(spinnerFrames(t, level).map((f) => f.match(/^\x1b\[[0-9;]*m/)?.[0]))).toEqual(new Set(["\x1b[38;2;228;138;122m", "\x1b[38;2;79;142;179m", "\x1b[38;2;234;182;93m"])); // coral, blue, yellow
 		}
 	});
 

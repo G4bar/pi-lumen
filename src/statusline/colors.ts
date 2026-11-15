@@ -1,15 +1,16 @@
 /**
- * Thinking colors, rainbow and threshold colors.
+ * Thinking colors, multicolor effect and threshold colors.
  *
- * `rainbow()` and its palette are ported from nicobailon/pi-powerline-footer v0.22.0
- * (theme.ts), MIT. Context thresholds (70/90 %) follow the same project.
+ * `rainbow()` follows nicobailon/pi-powerline-footer v0.22.0 (theme.ts), MIT, but cycles through pi's logo colors
+ * instead of powerline's rainbow. Context thresholds (70/90 %) follow the same project.
  */
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 type ThemeColor = Parameters<Theme["fg"]>[0];
 export type Level = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
-const RAINBOW = ["#b281d6", "#d787af", "#febc38", "#e4c00f", "#89d281", "#00afaf", "#178fb9", "#b281d6"];
+/** pi's logo colors: coral, blue, yellow (fixed across themes, like the logo). */
+const RAINBOW = ["#e48a7a", "#4f8eb3", "#eab65d"];
 
 function hexFg(hex: string): string {
 	const h = hex.replace("#", "");
@@ -31,13 +32,13 @@ export function rainbow(text: string): string {
 	return `${out}\x1b[39m`;
 }
 
-/** `high`, `xhigh` and `max` are multicolor (label and working spinner); lower levels use the theme. */
+/** `high`, `xhigh` and `max` are multicolor, in the logo colors (label and working spinner); lower levels use the theme. */
 export function isRainbowLevel(level: string): boolean {
 	return level === "high" || level === "xhigh" || level === "max";
 }
 
 /**
- * Colorize `text` for a thinking level: rainbow from `high` up, otherwise the very function pi uses for the
+ * Colorize `text` for a thinking level: logo colors from `high` up, otherwise the very function pi uses for the
  * prompt box border (theme tokens `thinkingOff` … `thinkingMedium`). Falls back to `thinkingText` if the
  * theme helper is absent.
  */
@@ -76,7 +77,7 @@ export function cacheColor(percent: number): ThemeColor {
 
 const BRAILLE = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-/** Working-indicator frames painted with the thinking level color (rainbow cycles per frame). */
+/** Working-indicator frames painted with the thinking level color (the logo colors cycle per frame from `high` up). */
 export function spinnerFrames(theme: Theme, level: string | undefined): string[] {
 	const lv = level ?? "off";
 	if (isRainbowLevel(lv)) return BRAILLE.map((ch, i) => `${hexFg(RAINBOW[i % RAINBOW.length] as string)}${ch}\x1b[39m`);
