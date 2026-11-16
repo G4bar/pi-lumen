@@ -3,9 +3,7 @@
 A small extension for [pi](https://pi.dev) (tested on pi 1.5.2): a powerline-style status line,
 thinking-level colors, compact `read`/`bash`/`edit`/`write` rows and transcript timestamps.
 
-```text
-deepseek · V4 Pro │ think:high │ 84k/200k 42% │ $0.42 │ CH 81% · 62 tok/s │ lumen │ main *2 +1
-```
+![pi-lumen: compact write row, working indicator and status line](docs/tools-statusline.png)
 
 ## Install
 
@@ -92,14 +90,7 @@ with headings and numbers in the logo's three colors. The start screen already s
 the transcript like pi's header. Below 44 columns only the small logo is drawn. `/lumen off` gives pi's header back;
 `welcome: false` in the `lumen` settings keeps pi's header and leaves the rest of pi-lumen on.
 
-```text
-╭─── Pi v1.5.2 ───────────────────────────────────────────────────────────────────────────────╮
-│                          │ Tips                                                              │
-│      Welcome back!       │ / for commands                                                    │
-│       █████████          │ ! to run bash                                                     │
-│       ▀▀▀▀▀▀███          │ shift+tab cycle thinking                                          │
-│       ███   ███          │ ctrl+o expand tools                                               │
-```
+![pi-lumen start screen](docs/start-screen.png)
 
 ## Compact tools
 
