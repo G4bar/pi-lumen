@@ -50,8 +50,20 @@ export const keepBackground = (s: string): string => s.replace(FULL_RESET_RE, SO
 export interface Box {
 	bg: string;
 	top: boolean;
-	bottom: boolean;
+	/** Evaluated at render time: a call box stays closed (blank row below) until the result row exists, see `callBox`. */
+	bottom: boolean | (() => boolean);
 }
+
+/** Renderer state shared by the call and the result of one tool row (`ctx.state`). */
+type SharedState = { lumenResult?: boolean } | undefined;
+
+/** Call-part box: blank row above, and below too until the result row (which closes the box itself) is drawn. */
+export const callBox = (bg: string, state: SharedState): Box => ({ bg, top: true, bottom: () => state !== undefined && !state.lumenResult });
+
+/** Called by every result renderer: from now on the call part no longer closes the box. */
+export const markResult = (state: SharedState): void => {
+	if (state) state.lumenResult = true;
+};
 
 /**
  * Margins (`pad` columns each side) around `rows`, and, with a `box`, its background over the full width: padding
@@ -69,7 +81,8 @@ export function paintRows(rows: string[], width: number, pad: number, box?: Box)
 		const inner = r.replace(/\x1b\[(?:0?|49)m/g, (m) => (m === "\x1b[49m" ? bg : `\x1b[0m${bg}`));
 		return `${bg}${margin}${inner}${" ".repeat(Math.max(0, width - pad - visibleWidth(inner)))}\x1b[49m`;
 	});
-	return [...(box.top ? [blank] : []), ...painted, ...(box.bottom ? [blank] : [])];
+	const bottom = typeof box.bottom === "function" ? box.bottom() : box.bottom;
+	return [...(box.top ? [blank] : []), ...painted, ...(bottom ? [blank] : [])];
 }
 
 /**
@@ -142,7 +155,7 @@ export function boxBg(theme: Pick<Theme, "getBgAnsi">, state: { isPartial?: bool
 	}
 }
 
-type ShellCtx = { lastComponent: unknown; outputPad?: number; isPartial?: boolean; isError?: boolean };
+type ShellCtx = { lastComponent: unknown; outputPad?: number; isPartial?: boolean; isError?: boolean; state?: SharedState };
 
 /**
  * Reuse the previous Block instance when possible. Every lumen tool uses `renderShell: "self"`: pi paints nothing
@@ -157,11 +170,12 @@ export function textOf(ctx: { lastComponent: unknown; outputPad?: number }, cont
 /** Row(s) of the call part of a tool: the box starts here (blank padded row on top). */
 export const callOf = (theme: Pick<Theme, "getBgAnsi">, ctx: ShellCtx, content: Content, wrap = false): Block => {
 	const bg = boxBg(theme, ctx);
-	return textOf(ctx, content, wrap, bg ? { bg, top: true, bottom: false } : undefined);
+	return textOf(ctx, content, wrap, bg ? callBox(bg, ctx.state) : undefined);
 };
 
 /** Row(s) of the result part: the box ends here (blank padded row at the bottom). */
 export const resultOf = (theme: Pick<Theme, "getBgAnsi">, ctx: ShellCtx, content: Content, wrap = false): Block => {
+	markResult(ctx.state);
 	const bg = boxBg(theme, ctx);
 	return textOf(ctx, content, wrap, bg ? { bg, top: false, bottom: true } : undefined);
 };

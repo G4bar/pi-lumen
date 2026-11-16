@@ -12,7 +12,7 @@ import type { ExtensionAPI, ToolRenderers } from "@earendil-works/pi-coding-agen
 import type { Component } from "@earendil-works/pi-tui";
 import type { LumenConfig } from "../config.ts";
 import { rowAt } from "./at.ts";
-import { type Box, boxBg, callLine, callOf, expandHint, framedLines, oneLine, paintRows, plural, resultLine, resultOf } from "./format.ts";
+import { type Box, boxBg, callBox, callLine, markResult, callOf, expandHint, framedLines, oneLine, paintRows, plural, resultLine, resultOf } from "./format.ts";
 
 /** Tools with lumen's own renderers (registered separately). */
 const OWN: ReadonlySet<string> = new Set(["read", "bash", "edit", "write"]);
@@ -36,7 +36,7 @@ export class Padded implements Component {
 	}
 }
 
-type AnyCtx = { lastComponent: unknown; outputPad?: number; isPartial?: boolean; isError?: boolean };
+type AnyCtx = { state?: { lumenResult?: boolean }; lastComponent: unknown; outputPad?: number; isPartial?: boolean; isError?: boolean };
 type ThemeLike = Parameters<typeof boxBg>[0];
 
 /**
@@ -51,7 +51,8 @@ function padded<A extends unknown[], C extends AnyCtx>(render: (...a: [...A, C])
 		const prev = ctx.lastComponent instanceof Padded ? ctx.lastComponent : undefined;
 		const inner = render(...head, { ...ctx, lastComponent: prev?.inner } as C);
 		const bg = boxBg(theme, ctx);
-		const box = bg ? { bg, top: part === "call", bottom: part === "result" } : undefined;
+		if (part === "result") markResult(ctx.state);
+		const box = bg ? (part === "call" ? callBox(bg, ctx.state) : { bg, top: false, bottom: true }) : undefined;
 		if (!prev) return new Padded(inner, ctx.outputPad ?? 1, box);
 		prev.inner = inner;
 		prev.pad = ctx.outputPad ?? 1;

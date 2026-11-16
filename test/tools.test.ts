@@ -295,6 +295,15 @@ describe("our own tool box (renderShell: self)", () => {
 		expect(resultOf(theme, ctx, "tail").render(10)).toHaveLength(2);
 		expect(callOf(theme, ctx, "head").render(10)[0]).toContain("48;2;1;1;1"); // neutral by default
 	});
+	it("call box stays closed (blank row below) until the result row exists", () => {
+		const theme = { getBgAnsi: () => "\x1b[48;2;1;1;1m" } as never;
+		const state = {};
+		const ctx = { lastComponent: undefined, isPartial: true, isError: false, state };
+		const call = callOf(theme, ctx, "head");
+		expect(call.render(10)).toHaveLength(3);
+		resultOf(theme, { ...ctx, lastComponent: undefined }, "tail");
+		expect(call.render(10)).toHaveLength(2);
+	});
 	it("boxBg: neutral / theme / none, error always red, themes without panels draw no box", () => {
 		const theme = (pending: string) => ({ getBgAnsi: (t: string) => (t === "toolPendingBg" ? pending : t === "toolErrorBg" ? "\x1b[48;2;9;0;0m" : "\x1b[48;2;0;9;0m") }) as never;
 		const t = theme("\x1b[48;2;1;1;1m");
