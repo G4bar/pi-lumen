@@ -46,6 +46,10 @@ describe("pills", () => {
 		expect(plain(long)).toBe(long);
 	});
 	it("a two-word pill stays on one line (no-break spaces)", () => expect(decorate("[[Needs you]]", palette)).toContain("Needs\u00a0you"));
+	it("a pill in a heading is a chip too, never raw brackets", () => {
+		expect(plain("## Cosa mi serve da te [[Needs you]]")).toBe("## Cosa mi serve da te  ▸ Needs you ");
+		expect(plain("## Finding [[Done]]")).toBe("## Finding  ✓ Done ");
+	});
 	it("a pill inside bold restores the bold color afterwards", () => {
 		const out = decorate("**a [[Done]] b**", palette);
 		expect(out).toContain("\x1b[1m<mdLink>");
@@ -140,6 +144,12 @@ describe("reply guidance", () => {
 		for (const tone of ["danger", "mode", "owner"] as const) for (const word of VOCABULARY[tone].core) expect(short).not.toContain(`[[${word}]]`);
 		expect(short.length).toBeLessThan(full.length / 4);
 		expect(short.length).toBeLessThan(1400);
+	});
+	it("short asks for a bold lead-in after every red or yellow pill, and each lead-in gets an icon", () => {
+		for (const word of ["Do", "Check", "Next", "Unblock", "Left"]) {
+			expect(short).toContain(`**${word}:**`);
+			expect(plain(`x **${word}:** y`)).not.toBe(`x **${word}:** y`);
+		}
 	});
 	it("every pill either one mentions is a known word, so no example teaches an uncolored one", () => {
 		const known = [...Object.values(VOCABULARY).flatMap((w) => w.core), ...CONTEXT_WORDS, "Word"];

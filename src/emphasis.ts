@@ -141,6 +141,7 @@ export function createPalette(theme: ThemeLike, boldColor = "mdLink", icons = tr
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 // Escaped bold markers, bold markers, or a [[pill]] of 1-32 characters.
+const PILL = /\[\[([^\[\]\n]{1,32})\]\]/g;
 const INLINE = /(\\*)(\*\*|__)|\[\[([^\[\]\n]{1,32})\]\]/g;
 
 /** Apply colors to assistant Markdown, leaving code blocks, inline code and headings alone. */
@@ -158,7 +159,7 @@ export function decorate(markdown: string, palette: Palette): string {
 			fence = mark;
 			out.push(line);
 		} else if (/^ {0,3}#{1,6}\s/.test(line)) {
-			out.push(line.replace(/^( {0,3}#{1,6}\s+)(.+)$/, (_, hashes: string, title: string) => hashes + withLabelIcon(title, palette.icons))); // Pi already colors headings.
+			out.push(line.replace(/^( {0,3}#{1,6}\s+)(.+)$/, (_, hashes: string, title: string) => hashes + pillsIn(withLabelIcon(title, palette.icons), palette))); // Pi already colors headings; a pill the model put there still becomes a chip, never raw `[[...]]`.
 		} else {
 			out.push(decorateLine(line, palette, open, close));
 		}
@@ -189,6 +190,12 @@ function pill(label: string, palette: Palette): string {
 	// No-break spaces pad the chip and keep a two-word pill on one line when Pi wraps the paragraph.
 	const text = (icon && word && palette.icons ? `${icon} ${word}` : word || label.trim()).replace(/ /g, "\u00a0");
 	return `${open}\x1b[1m\u00a0${text}\u00a0\x1b[22;27m\x1b[39m\x1b[49m`;
+}
+
+/** Turn the `[[pill]]`s of a text into chips, leaving all other text as it is. */
+function pillsIn(text: string, palette: Palette): string {
+	if (!palette.pills) return text;
+	return text.replace(PILL, (match, label: string) => (label.trim() ? pill(label, palette) : match));
 }
 
 function decorateLine(line: string, palette: Palette, open: string, close: string): string {
@@ -242,7 +249,7 @@ function shortGuidance(): string {
 - Red, something is wrong: ${pills(v.error.core)}.
 - Yellow, look here: ${pills(v.warning.core)}. [[Needs you]] is an action only the user can take; [[Decision]] is a call only the user makes; [[Unverified]] means you could not check (if you can run the check yourself, do it and report the result).
 - Green, settled: ${pills(v.success.core)}.
-A known word may carry short detail: [[Passed 12/12]], [[Failed: 3 tests]]. After a red or yellow pill, say what the user must do or check. One pill per bullet. Never put pills in headings, paths, commands, code or machine-readable output, and omit them when the user asks for plain text or an exact format. Do not invent new status words.`;
+A known word may carry short detail: [[Passed 12/12]], [[Failed: 3 tests]]. Never leave a red or yellow pill alone: follow it with the one fact the user needs, introduced by a bold lead-in ending in a colon (**Do:** for [[Needs you]], **Check:** for [[Unverified]], **Next:** for [[Failed]] or [[Decision]], **Unblock:** for [[Blocked]], **Left:** for [[Partial]]). One pill per bullet. Never put pills in headings, paths, commands, code or machine-readable output, and omit them when the user asks for plain text or an exact format. Do not invent new status words.`;
 }
 
 function fullGuidance(): string {
