@@ -217,7 +217,9 @@ See [NOTICE.md](NOTICE.md). Ideas and a few small functions come from
 [pi-powerline-footer](https://github.com/nicobailon/pi-powerline-footer) (segments, colors, rainbow, cache
 formula, git parsing), [pi-stamp](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-stamp)
 (timestamp entries) and [pi-pretty](https://github.com/heyhuynhgiabuu/pi-pretty) (compact tool rows,
-duration format, per-row thinking labels) and
+duration format, per-row thinking labels),
+[pi-emphasis](https://github.com/johnlindquist/pi-emphasis) (`[[Pill]]` chips, label icons, colored bold and the reply
+rules, here without Nerd Font) and
 [pi-token-speed](https://github.com/gsanhueza/pi-token-speed) (tok/s sliding window), which in turn credit Powerlevel10k and oh-my-pi. pi-powerline-footer
 declares MIT but ships no LICENSE file.
 
