@@ -43,10 +43,11 @@ match the `tok/s` of pi-stamp, which starts at message creation and therefore in
 
 | Command | What it does |
 |---|---|
-| `/lumen` | Shows the current state as a notification: `pi-lumen on · placement below · quota on · tools on (box neutral) · stamp on · provider/model`. Changes nothing. |
+| `/lumen` | Shows the current state as a notification: `pi-lumen on · placement below · quota on · tools on (box neutral) · stamp on · emphasis off · provider/model`. Changes nothing. |
 | `/lumen placement above\|below` | Moves the status line above or below the input box. |
 | `/lumen placement toggle` | Switches to the other position. |
 | `/lumen box neutral\|theme\|none` | Tool-box background of the tool rows: `neutral` (default) grey, `theme` pi's own panels (green on success), `none` flat rows. Without an argument it shows the usage and the current value. It applies to the tool rows drawn from then on (rows already on screen keep theirs); `/reload` redraws them. |
+| `/lumen emphasis on\|off` | Pills, icons and bold in assistant replies, plus the `reply_style` prompt rules (see [Emphasis](#emphasis-optional-off-by-default)). Saved, wins over `settings.json`; applies to replies drawn from then on and to the next run. Without a valid argument it shows the usage and the current value. |
 | `/lumen on` / `/lumen off` | `off` hands the footer, working indicator and thinking label back to pi (the status line, thinking colors and indicators go away); `on` installs them again. It applies at once, no restart. |
 | `/status` | Every status published by other extensions (`pi-sync`, `pi-lens · LSP`, unknown keys as-is), plus the loaded extensions with their command/tool counts. A snapshot shown as a notification; it needs the pi-lumen footer (with `/lumen off` pi's own footer shows the statuses). Richer details stay in each extension's own command (`/lens`, `/sync`). |
 
@@ -163,6 +164,24 @@ intermediate tool-use ones); the date appears when the day changes. **They are s
 the session file** (≈ 2 per exchange); they are never sent to the model. No backfill of older messages.
 Set `stamp.enabled: false` to stop writing them; `stamp.duration: true` adds the run duration.
 
+## Emphasis (optional, off by default)
+
+Display-only emphasis for assistant replies, ported from
+[pi-emphasis](https://github.com/johnlindquist/pi-emphasis) but **without Nerd Font**: set
+`"emphasis": { "enabled": true }` (or run `/lumen emphasis on`) and `[[Done]]`, `[[Failed]]`, `[[Needs you]]`… become colored square chips with a
+plain Unicode icon (`✓ Done`, `✗ Failed`, `▸ Needs you`, `? Unverified`), headings and bold lead labels such as
+`## Finding` or `**Cause:**` get an icon (`◎`, `↳`), `**bold**` takes the theme's link color, `✓ ✗ →` take the
+success/error/accent colors and `├──`/`└──` are dimmed. Pills use the theme's panel colors (`toolSuccessBg`,
+`toolErrorBg`, `searchMatchBg`; reverse video if the theme has none). Stored messages, copied text and HTML exports keep the
+original Markdown; code blocks and inline code are never touched.
+
+`emphasis.guidance` decides what the model is told (a `reply_style` section of the system prompt, only in the terminal UI,
+so print/RPC runs never get it): `short` (default, about 250 tokens: the pill syntax and the red/yellow/green words),
+`full` (the complete rules from pi-emphasis, about 1,500 tokens: mode and ownership pills, a label on every reply, an action
+after every attention pill) or `off` (pills are drawn, but the model does not know about them, so it rarely writes them).
+`/lumen emphasis on|off` switches it at runtime (saved, and wins over `settings.json`; replies already on screen are not redrawn). `emphasis.icons: false` removes every icon; `emphasis.color` is the theme color for bold text. A label that starts with a
+Nerd Font glyph keeps it. Do not install pi-emphasis next to it: both would decorate and both write `reply_style`.
+
 ## Configuration
 
 Optional, key `lumen` in `settings.json`:
@@ -177,6 +196,7 @@ Optional, key `lumen` in `settings.json`:
     "quota": { "enabled": true, "ttlMs": 90000 },
     "stamp": { "enabled": true, "duration": false },
     "tools": { "enabled": true, "previewLines": 40, "changeLines": 12, "time": false, "timeGapSec": 5, "shiki": true, "theme": "auto", "box": "neutral" },
+    "emphasis": { "enabled": false, "guidance": "short", "icons": true, "color": "mdLink" },
     "inlineStatusKeys": [],
     "welcome": true
   }

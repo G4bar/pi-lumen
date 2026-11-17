@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { BOX_MODES, DEFAULTS, isBoxMode, type LumenConfig, loadBootSettings, loadState, resolveConfig, statePath } from "./config.ts";
+import { registerEmphasis } from "./emphasis.ts";
 import { LumenSession } from "./session.ts";
 import { registerStamp } from "./stamp.ts";
 import { registerTools } from "./tools/index.ts";
@@ -22,17 +23,20 @@ export default function lumen(pi: ExtensionAPI): void {
 
 	if (cfg.tools.enabled) registerTools(pi, getCfg);
 	const stamp = registerStamp(pi, getCfg);
+	const emphasis = registerEmphasis(pi, getCfg);
 
 	pi.on("session_start", async (_e, ctx) => {
 		session?.dispose();
 		session = new LumenSession(pi, ctx);
 		cfg = session.cfg;
+		emphasis.start(ctx);
 		stamp.restore(ctx.sessionManager.getEntries(), ctx.mode === "tui");
 		session.installUi();
 	});
 
 	pi.on("session_shutdown", async () => {
 		stamp.stop();
+		emphasis.stop();
 		session?.dispose();
 		session = undefined;
 	});
@@ -132,7 +136,7 @@ export default function lumen(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("lumen", {
-		description: "pi-lumen: /lumen [placement above|below|toggle | box neutral|theme|none | on | off]",
+		description: "pi-lumen: /lumen [placement above|below|toggle | box neutral|theme|none | emphasis on|off | on | off]",
 		handler: async (args, ctx) => {
 			const s = session;
 			if (!s) return;
@@ -153,8 +157,14 @@ export default function lumen(pi: ExtensionAPI): void {
 					return;
 				}
 				s.setBox(arg);
+			} else if (cmd === "emphasis") {
+				if (arg !== "on" && arg !== "off") {
+					ctx.ui.notify(`Usage: /lumen emphasis on|off (now: ${s.cfg.emphasis.enabled ? "on" : "off"})`, "warning");
+					return;
+				}
+				s.setEmphasis(arg === "on");
 			} else if (cmd) {
-				ctx.ui.notify("Usage: /lumen [placement above|below|toggle | box neutral|theme|none | on | off]", "warning");
+				ctx.ui.notify("Usage: /lumen [placement above|below|toggle | box neutral|theme|none | emphasis on|off | on | off]", "warning");
 				return;
 			}
 			ctx.ui.notify(s.describe(), "info");

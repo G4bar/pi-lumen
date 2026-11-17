@@ -43,6 +43,8 @@ export class LumenSession {
 	private quota: QuotaClient | undefined;
 	/** Set by `/lumen box`; only then is it written to the state file (otherwise settings.json decides). */
 	private boxOverride: BoxMode | undefined;
+	/** Set by `/lumen emphasis`; only then is it written to the state file (otherwise settings.json decides). */
+	private emphasisOverride: boolean | undefined;
 	private headerOn = false;
 	private headerTimer: ReturnType<typeof setTimeout> | undefined;
 	private headerAbort: AbortController | undefined;
@@ -55,7 +57,9 @@ export class LumenSession {
 	) {
 		this.ctx = ctx;
 		this.cfg = this.loadConfig();
-		this.boxOverride = loadState(statePath(getAgentDir())).box;
+		const saved = loadState(statePath(getAgentDir()));
+		this.boxOverride = saved.box;
+		this.emphasisOverride = saved.emphasisEnabled;
 		this.git = new GitStatusCache(
 			() => this.cfg.git.statusTtlMs,
 			() => this.bump(),
@@ -347,8 +351,20 @@ export class LumenSession {
 		this.persist();
 	}
 
+	/** Emphasis for replies drawn from now on and for the next run's prompt (replies already on screen are not redrawn). */
+	setEmphasis(enabled: boolean): void {
+		this.cfg.emphasis.enabled = enabled;
+		this.emphasisOverride = enabled;
+		this.persist();
+	}
+
 	private persist(): void {
-		const state: StateOverrides = { enabled: this.cfg.enabled, placement: this.cfg.placement, ...(this.boxOverride ? { box: this.boxOverride } : {}) };
+		const state: StateOverrides = {
+			enabled: this.cfg.enabled,
+			placement: this.cfg.placement,
+			...(this.boxOverride ? { box: this.boxOverride } : {}),
+			...(this.emphasisOverride === undefined ? {} : { emphasisEnabled: this.emphasisOverride }),
+		};
 		saveState(statePath(getAgentDir()), state);
 	}
 
@@ -376,7 +392,7 @@ export class LumenSession {
 
 	describe(): string {
 		const d = this.data();
-		return `pi-lumen ${this.cfg.enabled ? "on" : "off"} · placement ${this.cfg.placement} · quota ${this.cfg.quota.enabled ? "on" : "off"} · tools ${this.cfg.tools.enabled ? `on (box ${this.cfg.tools.box})` : "off"} · stamp ${this.cfg.stamp.enabled ? "on" : "off"} · ${d.provider ?? "?"}/${d.modelName ?? "?"}`;
+		return `pi-lumen ${this.cfg.enabled ? "on" : "off"} · placement ${this.cfg.placement} · quota ${this.cfg.quota.enabled ? "on" : "off"} · tools ${this.cfg.tools.enabled ? `on (box ${this.cfg.tools.box})` : "off"} · stamp ${this.cfg.stamp.enabled ? "on" : "off"} · emphasis ${this.cfg.emphasis.enabled ? `on (${this.cfg.emphasis.guidance})` : "off"} · ${d.provider ?? "?"}/${d.modelName ?? "?"}`;
 	}
 
 	// ── thinking & working indicator ─────────────────────────────────────────

@@ -7,6 +7,9 @@ export type BoxMode = "neutral" | "theme" | "none";
 export const BOX_MODES: readonly BoxMode[] = ["neutral", "theme", "none"];
 export const isBoxMode = (v: unknown): v is BoxMode => typeof v === "string" && (BOX_MODES as readonly string[]).includes(v);
 
+export type EmphasisGuidance = "short" | "full" | "off";
+export const EMPHASIS_GUIDANCE: readonly EmphasisGuidance[] = ["short", "full", "off"];
+
 export interface LumenConfig {
 	enabled: boolean;
 	placement: Placement;
@@ -19,6 +22,8 @@ export interface LumenConfig {
 	tools: { enabled: boolean; previewLines: number; changeLines: number; time: boolean; timeGapSec: number; shiki: boolean; theme: string; box: BoxMode };
 	/** Status keys of other extensions still drawn in the status line; everything else is only in /status. */
 	inlineStatusKeys: string[];
+	/** Colored `[[Done]]` pills, icons and bold in assistant replies (display only), plus the prompt rules that teach the model to write them. */
+	emphasis: { enabled: boolean; guidance: EmphasisGuidance; icons: boolean; color: string };
 	/** Persistent start screen (boxed header with pi's logo) instead of pi's own header. */
 	welcome: boolean;
 }
@@ -34,6 +39,7 @@ export const DEFAULTS: LumenConfig = {
 	stamp: { enabled: true, duration: false },
 	tools: { enabled: true, previewLines: 40, changeLines: 12, time: false, timeGapSec: 5, shiki: true, theme: "auto", box: "neutral" },
 	inlineStatusKeys: [],
+	emphasis: { enabled: false, guidance: "short", icons: true, color: "mdLink" },
 	welcome: true,
 };
 
@@ -57,9 +63,13 @@ export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): 
 	const cfg = merge(merge(DEFAULTS, settingsLumen), stateOverrides);
 	if (cfg.placement !== "above" && cfg.placement !== "below") cfg.placement = DEFAULTS.placement;
 	if (cfg.icons !== "none" && cfg.icons !== "ascii") cfg.icons = DEFAULTS.icons;
+	if (!(EMPHASIS_GUIDANCE as readonly string[]).includes(cfg.emphasis.guidance)) cfg.emphasis.guidance = DEFAULTS.emphasis.guidance;
+	if (!cfg.emphasis.color.trim()) cfg.emphasis.color = DEFAULTS.emphasis.color;
 	if (!isBoxMode(cfg.tools.box)) cfg.tools.box = DEFAULTS.tools.box;
 	// `/lumen box` is saved as a top-level key of the state file and wins over settings.json
 	if (isRecord(stateOverrides) && isBoxMode(stateOverrides.box)) cfg.tools.box = stateOverrides.box;
+	// `/lumen emphasis on|off` is saved as a top-level key of the state file and wins over settings.json
+	if (isRecord(stateOverrides) && typeof stateOverrides.emphasisEnabled === "boolean") cfg.emphasis.enabled = stateOverrides.emphasisEnabled;
 	cfg.tools.previewLines = Math.max(0, Math.floor(cfg.tools.previewLines));
 	cfg.tools.changeLines = Math.max(0, Math.floor(cfg.tools.changeLines));
 	cfg.tools.timeGapSec = Math.max(0, cfg.tools.timeGapSec);
@@ -69,7 +79,7 @@ export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): 
 }
 
 /** Persisted overrides written by `/lumen` commands (pi has no public settings writer). */
-export type StateOverrides = Partial<Pick<LumenConfig, "enabled" | "placement">> & { box?: BoxMode };
+export type StateOverrides = Partial<Pick<LumenConfig, "enabled" | "placement">> & { box?: BoxMode; emphasisEnabled?: boolean };
 
 export function statePath(agentDir: string): string {
 	return join(agentDir, "pi-lumen.json");
@@ -84,6 +94,7 @@ export function loadState(path: string): StateOverrides {
 		if (typeof raw.enabled === "boolean") out.enabled = raw.enabled;
 		if (raw.placement === "above" || raw.placement === "below") out.placement = raw.placement;
 		if (isBoxMode(raw.box)) out.box = raw.box;
+		if (typeof raw.emphasisEnabled === "boolean") out.emphasisEnabled = raw.emphasisEnabled;
 		return out;
 	} catch {
 		return {};
