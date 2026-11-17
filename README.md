@@ -87,7 +87,7 @@ and `ctrl+o` again collapses it. The hint is on the result row when there is som
 A boxed, persistent header replaces pi's own (layout as in pi-powerline-footer): `Welcome back!`, pi's **real**
 logo (the coral/blue/yellow pixel logo of pi's own header, scaled up; not a block-letter approximation), model and
 provider on the left; `Tips`, `Loaded` (context files, skills, prompt templates) and `Recent sessions` on the right,
-with headings and numbers in the logo's three colors. The start screen already shows what pi lists at startup (`[Context]`, `[Skills]`, `[Extensions]`); an extension cannot hide that listing, so set `"quietStartup": "header"` in `settings.json` to drop it (pi keeps its warnings and errors). It is not an overlay and nothing dismisses it: it scrolls with
+with headings and numbers in the logo's three colors. The start screen already shows what pi lists at startup (`[Context]`, `[Skills]`, `[Extensions]`); an extension cannot hide that listing nor pi's own header (which would flash for a moment before this one replaces it), so set `"quietStartup": true` in `settings.json` to drop both (pi keeps its warnings and errors). It is not an overlay and nothing dismisses it: it scrolls with
 the transcript like pi's header. Below 44 columns only the small logo is drawn. `/lumen off` gives pi's header back;
 `welcome: false` in the `lumen` settings keeps pi's header and leaves the rest of pi-lumen on.
 
