@@ -5,6 +5,7 @@
  * pi's logo colors instead of powerline's per-character rainbow. Context thresholds (70/90 %) follow the same project.
  */
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { SpinnerName } from "../config.ts";
 import { colorToRgb, mixColors, type RgbColorValue, rgbColor } from "@earendil-works/pi-tui";
 
 type ThemeColor = Parameters<Theme["fg"]>[0];
@@ -84,18 +85,28 @@ export function cacheColor(percent: number): ThemeColor {
 	return percent < 70 ? "warning" : "success";
 }
 
-const BRAILLE = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+/**
+ * Spinner symbol sets. `default` is pi-lumen's braille dots; `canadian`, `ogham` (OGHAM_C) and `circle` (WHITE_CIRCLE)
+ * are the sets of the same name in arkbig/throbber-widgets-tui (MIT). Four-frame sets tick slower than the braille one.
+ */
+export const SPINNERS: Record<SpinnerName, { frames: readonly string[]; intervalMs: number }> = {
+	default: { frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"], intervalMs: 90 },
+	canadian: { frames: ["ᔐ", "ᯇ", "ᔑ", "ᯇ"], intervalMs: 150 },
+	ogham: { frames: [" ", "ᚆ", "ᚇ", "ᚈ", "ᚉ", "ᚊ"], intervalMs: 130 },
+	circle: { frames: ["◷", "◶", "◵", "◴"], intervalMs: 150 },
+};
 
-/** Braille turns per color loop: the color moves slower than the dots, which is easier on the eye. */
-const TURNS_PER_LOOP = 3;
+/** About this many frames per color loop: the color moves slower than the symbols, which is easier on the eye (braille: 3 turns). */
+const FRAMES_PER_LOOP = 30;
 
 /** Working-indicator frames painted with the thinking level color (a slow logo gradient from `high` up). */
-export function spinnerFrames(theme: Theme, level: string | undefined): string[] {
+export function spinnerFrames(theme: Theme, level: string | undefined, spinner: SpinnerName = "default"): string[] {
 	const lv = level ?? "off";
+	const { frames } = SPINNERS[spinner];
 	if (isRainbowLevel(lv)) {
-		const n = BRAILLE.length * TURNS_PER_LOOP;
-		return Array.from({ length: n }, (_, i) => `${logoColorAt(i / n)}${BRAILLE[i % BRAILLE.length]}\x1b[39m`);
+		const n = frames.length * Math.max(1, Math.round(FRAMES_PER_LOOP / frames.length));
+		return Array.from({ length: n }, (_, i) => `${logoColorAt(i / n)}${frames[i % frames.length]}\x1b[39m`);
 	}
 	const paint = thinkingPaint(theme, lv);
-	return BRAILLE.map((ch) => paint(ch));
+	return frames.map((ch) => paint(ch));
 }

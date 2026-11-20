@@ -43,17 +43,18 @@ match the `tok/s` of pi-stamp, which starts at message creation and therefore in
 
 | Command | What it does |
 |---|---|
-| `/lumen` | Shows the current state as a notification: `pi-lumen on · placement below · quota on · tools on (box neutral) · stamp on · emphasis off · provider/model`. Changes nothing. |
+| `/lumen` | Shows the current state as a notification: `pi-lumen on · placement below · quota on · tools on (box neutral) · stamp on · spinner default · emphasis off · provider/model`. Changes nothing. |
 | `/lumen placement above\|below` | Moves the status line above or below the input box. |
 | `/lumen placement toggle` | Switches to the other position. |
 | `/lumen box neutral\|theme\|none` | Tool-box background of the tool rows: `neutral` (default) grey, `theme` pi's own panels (green on success), `none` flat rows. Without an argument it shows the usage and the current value. It applies to the tool rows drawn from then on (rows already on screen keep theirs); `/reload` redraws them. |
+| `/lumen spinner default\|canadian\|ogham\|circle` | Working spinner: `default` braille dots `⠋⠙⠹…`, `canadian` `ᔐᯇᔑᯇ`, `ogham` ` ᚆᚇᚈᚉᚊ` (OGHAM_C), `circle` `◷◶◵◴` (WHITE CIRCLE); the last three are sets from [throbber-widgets-tui](https://github.com/arkbig/throbber-widgets-tui). Saved, wins over `settings.json`, applies at once (also mid-run). Without a valid argument it shows the usage and the current value. |
 | `/lumen emphasis on\|off` | Pills, icons and bold in assistant replies, plus the `reply_style` prompt rules (see [Emphasis](#emphasis-optional-off-by-default)). Saved, wins over `settings.json`; applies to replies drawn from then on and to the next run. Without a valid argument it shows the usage and the current value. |
 | `/lumen on` / `/lumen off` | `off` hands the footer, working indicator and thinking label back to pi (the status line, thinking colors and indicators go away); `on` installs them again. It applies at once, no restart. |
 | `/status` | Every status published by other extensions (`pi-sync`, `pi-lens · LSP`, unknown keys as-is), plus the loaded extensions with their command/tool counts. A snapshot shown as a notification; it needs the pi-lumen footer (with `/lumen off` pi's own footer shows the statuses). Richer details stay in each extension's own command (`/lens`, `/sync`). |
 
 Each `/lumen` subcommand also prints the new state. A wrong argument shows the usage line and changes nothing.
 
-Placement, box and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no API to write `settings.json`), so they survive restarts.
+Placement, box, spinner, emphasis and on/off are saved to `~/.pi/agent/pi-lumen.json` (pi has no API to write `settings.json`), so they survive restarts.
 They override the same keys in `settings.json`. Everything else (separator, icons, `tools.*`, quota, stamp, …) is configured in
 `settings.json` only, see [Configuration](#configuration); there is no command for it.
 
@@ -190,6 +191,7 @@ Optional, key `lumen` in `settings.json`:
 {
   "lumen": {
     "placement": "below",
+    "spinner": "default",
     "separator": "│",
     "icons": "ascii",
     "git": { "statusTtlMs": 2000 },
@@ -202,6 +204,8 @@ Optional, key `lumen` in `settings.json`:
   }
 }
 ```
+
+`spinner` (`default`, `canadian`, `ogham`, `circle`; or `/lumen spinner …`, which is saved and wins over it) picks the working spinner symbols; the thinking-level colors apply to all of them.
 
 `tools.box` (or `/lumen box …`, which is saved and wins over it) is the tool-box background: `neutral` (default; pi's grey pending panel, red panel on errors), `theme` (pi's own panels: green on success) or `none` (flat rows on the terminal background). A theme without tool panels draws no box.
 
@@ -220,6 +224,7 @@ formula, git parsing), [pi-stamp](https://github.com/narumiruna/pi-extensions/tr
 duration format, per-row thinking labels),
 [pi-emphasis](https://github.com/johnlindquist/pi-emphasis) (`[[Pill]]` chips, label icons, colored bold and the reply
 rules, here without Nerd Font) and
+[throbber-widgets-tui](https://github.com/arkbig/throbber-widgets-tui) (the `canadian`, `ogham` and `circle` spinner symbols) and
 [pi-token-speed](https://github.com/gsanhueza/pi-token-speed) (tok/s sliding window), which in turn credit Powerlevel10k and oh-my-pi. pi-powerline-footer
 declares MIT but ships no LICENSE file.
 

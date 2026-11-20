@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { BOX_MODES, DEFAULTS, isBoxMode, type LumenConfig, loadBootSettings, loadState, resolveConfig, statePath } from "./config.ts";
+import { BOX_MODES, DEFAULTS, isBoxMode, isSpinnerName, type LumenConfig, SPINNER_NAMES, loadBootSettings, loadState, resolveConfig, statePath } from "./config.ts";
 import { registerEmphasis } from "./emphasis.ts";
 import { LumenSession } from "./session.ts";
 import { registerStamp } from "./stamp.ts";
@@ -136,7 +136,7 @@ export default function lumen(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("lumen", {
-		description: "pi-lumen: /lumen [placement above|below|toggle | box neutral|theme|none | emphasis on|off | on | off]",
+		description: "pi-lumen: /lumen [placement above|below|toggle | box neutral|theme|none | spinner default|canadian|ogham|circle | emphasis on|off | on | off]",
 		handler: async (args, ctx) => {
 			const s = session;
 			if (!s) return;
@@ -157,6 +157,12 @@ export default function lumen(pi: ExtensionAPI): void {
 					return;
 				}
 				s.setBox(arg);
+			} else if (cmd === "spinner") {
+				if (!isSpinnerName(arg)) {
+					ctx.ui.notify(`Usage: /lumen spinner ${SPINNER_NAMES.join("|")} (now: ${s.cfg.spinner})`, "warning");
+					return;
+				}
+				s.setSpinner(arg);
 			} else if (cmd === "emphasis") {
 				if (arg !== "on" && arg !== "off") {
 					ctx.ui.notify(`Usage: /lumen emphasis on|off (now: ${s.cfg.emphasis.enabled ? "on" : "off"})`, "warning");
@@ -164,7 +170,7 @@ export default function lumen(pi: ExtensionAPI): void {
 				}
 				s.setEmphasis(arg === "on");
 			} else if (cmd) {
-				ctx.ui.notify("Usage: /lumen [placement above|below|toggle | box neutral|theme|none | emphasis on|off | on | off]", "warning");
+				ctx.ui.notify("Usage: /lumen [placement above|below|toggle | box neutral|theme|none | spinner default|canadian|ogham|circle | emphasis on|off | on | off]", "warning");
 				return;
 			}
 			ctx.ui.notify(s.describe(), "info");

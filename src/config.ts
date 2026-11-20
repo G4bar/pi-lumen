@@ -7,12 +7,18 @@ export type BoxMode = "neutral" | "theme" | "none";
 export const BOX_MODES: readonly BoxMode[] = ["neutral", "theme", "none"];
 export const isBoxMode = (v: unknown): v is BoxMode => typeof v === "string" && (BOX_MODES as readonly string[]).includes(v);
 
+/** Working spinner (`spinner`): `default` = braille dots; the others are sets from arkbig/throbber-widgets-tui. */
+export type SpinnerName = "default" | "canadian" | "ogham" | "circle";
+export const SPINNER_NAMES: readonly SpinnerName[] = ["default", "canadian", "ogham", "circle"];
+export const isSpinnerName = (v: unknown): v is SpinnerName => typeof v === "string" && (SPINNER_NAMES as readonly string[]).includes(v);
+
 export type EmphasisGuidance = "short" | "full" | "off";
 export const EMPHASIS_GUIDANCE: readonly EmphasisGuidance[] = ["short", "full", "off"];
 
 export interface LumenConfig {
 	enabled: boolean;
 	placement: Placement;
+	spinner: SpinnerName;
 	separator: string;
 	icons: "ascii" | "none";
 	cache: "session";
@@ -31,6 +37,7 @@ export interface LumenConfig {
 export const DEFAULTS: LumenConfig = {
 	enabled: true,
 	placement: "below",
+	spinner: "default",
 	separator: "│",
 	icons: "ascii",
 	cache: "session",
@@ -59,8 +66,13 @@ function merge<T>(base: T, over: unknown): T {
 	return out as T;
 }
 
+const pickSpinner = (src: unknown, fallback: SpinnerName): SpinnerName => (isRecord(src) && isSpinnerName(src.spinner) ? src.spinner : fallback);
+
 export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): LumenConfig {
-	const cfg = merge(merge(DEFAULTS, settingsLumen), stateOverrides);
+	const fromSettings = merge(DEFAULTS, settingsLumen);
+	const cfg = merge(fromSettings, stateOverrides);
+	// `/lumen spinner` is saved as a top-level key of the state file and wins over settings.json; a bad value in either is ignored
+	cfg.spinner = pickSpinner(stateOverrides, pickSpinner(settingsLumen, DEFAULTS.spinner));
 	if (cfg.placement !== "above" && cfg.placement !== "below") cfg.placement = DEFAULTS.placement;
 	if (cfg.icons !== "none" && cfg.icons !== "ascii") cfg.icons = DEFAULTS.icons;
 	if (!(EMPHASIS_GUIDANCE as readonly string[]).includes(cfg.emphasis.guidance)) cfg.emphasis.guidance = DEFAULTS.emphasis.guidance;
@@ -79,7 +91,7 @@ export function resolveConfig(settingsLumen: unknown, stateOverrides: unknown): 
 }
 
 /** Persisted overrides written by `/lumen` commands (pi has no public settings writer). */
-export type StateOverrides = Partial<Pick<LumenConfig, "enabled" | "placement">> & { box?: BoxMode; emphasisEnabled?: boolean };
+export type StateOverrides = Partial<Pick<LumenConfig, "enabled" | "placement">> & { box?: BoxMode; spinner?: SpinnerName; emphasisEnabled?: boolean };
 
 export function statePath(agentDir: string): string {
 	return join(agentDir, "pi-lumen.json");
@@ -94,6 +106,7 @@ export function loadState(path: string): StateOverrides {
 		if (typeof raw.enabled === "boolean") out.enabled = raw.enabled;
 		if (raw.placement === "above" || raw.placement === "below") out.placement = raw.placement;
 		if (isBoxMode(raw.box)) out.box = raw.box;
+		if (isSpinnerName(raw.spinner)) out.spinner = raw.spinner;
 		if (typeof raw.emphasisEnabled === "boolean") out.emphasisEnabled = raw.emphasisEnabled;
 		return out;
 	} catch {

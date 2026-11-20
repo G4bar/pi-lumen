@@ -168,6 +168,18 @@ describe("colors and formatting", () => {
 		}
 	});
 
+	it("alternative spinners (canadian, ogham, circle) keep the thinking colors and loop the logo gradient", () => {
+		const t = { ...theme, getThinkingBorderColor: (l: string) => (x: string) => `<${l}>${x}` } as unknown as RenderData["theme"];
+		const sets = { canadian: ["ᔐ", "ᯇ", "ᔑ", "ᯇ"], ogham: [" ", "ᚆ", "ᚇ", "ᚈ", "ᚉ", "ᚊ"], circle: ["◷", "◶", "◵", "◴"] } as const;
+		for (const [name, symbols] of Object.entries(sets) as [keyof typeof sets, readonly string[]][]) {
+			expect(spinnerFrames(t, "low", name).map(plain)).toEqual(symbols.map((s) => `<low>${s}`));
+			const rainbowFrames = spinnerFrames(t, "max", name);
+			expect(rainbowFrames.length % symbols.length).toBe(0);
+			expect(rainbowFrames.map(plain).slice(0, symbols.length)).toEqual([...symbols]);
+		}
+		expect(spinnerFrames(t, "low")).toEqual(spinnerFrames(t, "low", "default"));
+	});
+
 	it("formatTokens", () => {
 		expect(formatTokens(950)).toBe("950");
 		expect(formatTokens(84_000)).toBe("84k");

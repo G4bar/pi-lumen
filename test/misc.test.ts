@@ -29,6 +29,13 @@ describe("config", () => {
 		expect(resolveConfig({ tools: { box: "theme" } }, null).tools.box).toBe("theme");
 		expect(resolveConfig({ tools: { box: "rainbow" } }, null).tools.box).toBe("neutral");
 	});
+	it("spinner accepts default/canadian/ogham/circle; a saved `/lumen spinner` wins; bad values fall back", () => {
+		expect(DEFAULTS.spinner).toBe("default");
+		expect(resolveConfig({ spinner: "ogham" }, null).spinner).toBe("ogham");
+		expect(resolveConfig({ spinner: "dots" }, null).spinner).toBe("default");
+		expect(resolveConfig({ spinner: "ogham" }, { spinner: "circle" }).spinner).toBe("circle");
+		expect(resolveConfig({ spinner: "ogham" }, { spinner: "dots" }).spinner).toBe("ogham");
+	});
 	it("a saved `/lumen box` wins over settings.json; a bad saved value is ignored", () => {
 		expect(resolveConfig({ tools: { box: "theme" } }, { box: "none" }).tools.box).toBe("none");
 		expect(resolveConfig({ tools: { box: "theme" } }, { box: "rainbow" }).tools.box).toBe("theme");

@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
 import { getAgentDir, keyText, VERSION } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
-import { type BoxMode, type LumenConfig, loadState, resolveConfig, type StateOverrides, saveState, statePath } from "./config.ts";
+import { type BoxMode, type LumenConfig, type SpinnerName, loadState, resolveConfig, type StateOverrides, saveState, statePath } from "./config.ts";
 import { GitStatusCache } from "./git.ts";
 import { QuotaClient } from "./quota.ts";
 import { formatStatusReport, groupLoaded, type LoadedExtension } from "./status.ts";
@@ -9,7 +9,7 @@ import { RowThinking } from "./thinking-label.ts";
 import { countContextFiles, recentSessions, type RecentSession, WelcomeHeader, type WelcomeData } from "./welcome.ts";
 import { cacheView, computeStats, emptyStats, type LedgerStats, ThinkingTimer, TpsTracker } from "./stats.ts";
 
-import { spinnerFrames } from "./statusline/colors.ts";
+import { SPINNERS, spinnerFrames } from "./statusline/colors.ts";
 import { fitLine } from "./statusline/layout.ts";
 import type { RenderData } from "./statusline/segments.ts";
 
@@ -43,6 +43,8 @@ export class LumenSession {
 	private quota: QuotaClient | undefined;
 	/** Set by `/lumen box`; only then is it written to the state file (otherwise settings.json decides). */
 	private boxOverride: BoxMode | undefined;
+	/** Set by `/lumen spinner`; only then is it written to the state file (otherwise settings.json decides). */
+	private spinnerOverride: SpinnerName | undefined;
 	/** Set by `/lumen emphasis`; only then is it written to the state file (otherwise settings.json decides). */
 	private emphasisOverride: boolean | undefined;
 	private headerOn = false;
@@ -59,6 +61,7 @@ export class LumenSession {
 		this.cfg = this.loadConfig();
 		const saved = loadState(statePath(getAgentDir()));
 		this.boxOverride = saved.box;
+		this.spinnerOverride = saved.spinner;
 		this.emphasisOverride = saved.emphasisEnabled;
 		this.git = new GitStatusCache(
 			() => this.cfg.git.statusTtlMs,
@@ -351,6 +354,14 @@ export class LumenSession {
 		this.persist();
 	}
 
+	/** Working spinner, applied at once. */
+	setSpinner(spinner: SpinnerName): void {
+		this.cfg.spinner = spinner;
+		this.spinnerOverride = spinner;
+		this.persist();
+		this.applyWorkingIndicator();
+	}
+
 	/** Emphasis for replies drawn from now on and for the next run's prompt (replies already on screen are not redrawn). */
 	setEmphasis(enabled: boolean): void {
 		this.cfg.emphasis.enabled = enabled;
@@ -363,6 +374,7 @@ export class LumenSession {
 			enabled: this.cfg.enabled,
 			placement: this.cfg.placement,
 			...(this.boxOverride ? { box: this.boxOverride } : {}),
+			...(this.spinnerOverride ? { spinner: this.spinnerOverride } : {}),
 			...(this.emphasisOverride === undefined ? {} : { emphasisEnabled: this.emphasisOverride }),
 		};
 		saveState(statePath(getAgentDir()), state);
@@ -392,14 +404,15 @@ export class LumenSession {
 
 	describe(): string {
 		const d = this.data();
-		return `pi-lumen ${this.cfg.enabled ? "on" : "off"} · placement ${this.cfg.placement} · quota ${this.cfg.quota.enabled ? "on" : "off"} · tools ${this.cfg.tools.enabled ? `on (box ${this.cfg.tools.box})` : "off"} · stamp ${this.cfg.stamp.enabled ? "on" : "off"} · emphasis ${this.cfg.emphasis.enabled ? `on (${this.cfg.emphasis.guidance})` : "off"} · ${d.provider ?? "?"}/${d.modelName ?? "?"}`;
+		return `pi-lumen ${this.cfg.enabled ? "on" : "off"} · placement ${this.cfg.placement} · quota ${this.cfg.quota.enabled ? "on" : "off"} · tools ${this.cfg.tools.enabled ? `on (box ${this.cfg.tools.box})` : "off"} · stamp ${this.cfg.stamp.enabled ? "on" : "off"} · spinner ${this.cfg.spinner} · emphasis ${this.cfg.emphasis.enabled ? `on (${this.cfg.emphasis.guidance})` : "off"} · ${d.provider ?? "?"}/${d.modelName ?? "?"}`;
 	}
 
 	// ── thinking & working indicator ─────────────────────────────────────────
 
 	applyWorkingIndicator(): void {
 		if (!this.uiInstalled) return;
-		this.ctx.ui.setWorkingIndicator({ frames: spinnerFrames(this.ctx.ui.theme, this.pi.getThinkingLevel()), intervalMs: 90 });
+		const spinner = this.cfg.spinner;
+		this.ctx.ui.setWorkingIndicator({ frames: spinnerFrames(this.ctx.ui.theme, this.pi.getThinkingLevel(), spinner), intervalMs: SPINNERS[spinner].intervalMs });
 	}
 
 	private thinkingHidden(): boolean {
